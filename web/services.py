@@ -21,9 +21,11 @@ def get_alert_engine(registry=None):
     from tracker.alert_engine import AlertEngine
     if registry is None:
         registry = get_registry()
+    domain_registry = get_domain_registry()
     engine = AlertEngine(
         registry,
         history_path=str(PROJECT_ROOT / "data" / "alerts_history.json"),
+        domain_registry=domain_registry,
     )
     engine.evaluate_all()
     return engine
@@ -88,10 +90,12 @@ def get_acme_service():
     from config.settings import ACME_EMAIL, LETSENCRYPT_DIR, CERTBOT_STAGING
     store = get_settings_store()
     acme = store.get_section("acme")
+    azure_dns = get_azure_dns_service()
     return AcmeService(
         letsencrypt_dir=str(LETSENCRYPT_DIR),
         email=acme.get("email") or ACME_EMAIL,
         staging=acme.get("staging", CERTBOT_STAGING),
+        azure_dns_service=azure_dns if azure_dns.is_configured() else None,
     )
 
 
