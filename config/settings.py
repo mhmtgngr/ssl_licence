@@ -35,6 +35,9 @@ AZURE_TENANT_ID = os.environ.get("AZURE_TENANT_ID", "")
 AZURE_CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", "")
 AZURE_CLIENT_SECRET = os.environ.get("AZURE_CLIENT_SECRET", "")
 
+# Settings store (runtime configuration)
+SETTINGS_PATH = PROJECT_ROOT / "data" / "settings.json"
+
 # Scheduler
 SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
 

@@ -33,6 +33,7 @@ def create_app():
     from web.routes.licences import bp as licences_bp
     from web.routes.certificates import bp as certificates_bp
     from web.routes.domains import bp as domains_bp
+    from web.routes.settings import bp as settings_bp
     from web.routes.api import bp as api_bp
 
     app.register_blueprint(dashboard_bp)
@@ -43,6 +44,7 @@ def create_app():
     app.register_blueprint(licences_bp, url_prefix="/licences")
     app.register_blueprint(certificates_bp, url_prefix="/certificates")
     app.register_blueprint(domains_bp, url_prefix="/domains")
+    app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(api_bp, url_prefix="/api/v1")
     csrf.exempt(api_bp)
 

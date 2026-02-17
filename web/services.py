@@ -4,6 +4,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = str(PROJECT_ROOT / "data" / "products" / "registry.json")
+SETTINGS_PATH = str(PROJECT_ROOT / "data" / "settings.json")
 LICENCE_STORAGE = str(PROJECT_ROOT / "data" / "licences.json")
 CERT_CHECKS_PATH = PROJECT_ROOT / "data" / "cert_checks.json"
 SSLCERT_BASE_DIR = str(PROJECT_ROOT / "sslcert")
@@ -77,22 +78,37 @@ def get_dns_service():
     return DnsService()
 
 
+def get_settings_store():
+    from web.settings_store import SettingsStore
+    return SettingsStore(SETTINGS_PATH)
+
+
 def get_acme_service():
     from sslcert.acme_service import AcmeService
     from config.settings import ACME_EMAIL, LETSENCRYPT_DIR, CERTBOT_STAGING
+    store = get_settings_store()
+    acme = store.get_section("acme")
     return AcmeService(
         letsencrypt_dir=str(LETSENCRYPT_DIR),
-        email=ACME_EMAIL,
-        staging=CERTBOT_STAGING,
+        email=acme.get("email") or ACME_EMAIL,
+        staging=acme.get("staging", CERTBOT_STAGING),
     )
 
 
 def get_azure_dns_service():
     from sslcert.azure_dns import AzureDnsService
-    from config.settings import AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP
+    from config.settings import (
+        AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP,
+        AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+    )
+    store = get_settings_store()
+    azure = store.get_section("azure_dns")
     return AzureDnsService(
-        subscription_id=AZURE_SUBSCRIPTION_ID,
-        resource_group=AZURE_RESOURCE_GROUP,
+        subscription_id=azure.get("subscription_id") or AZURE_SUBSCRIPTION_ID,
+        resource_group=azure.get("resource_group") or AZURE_RESOURCE_GROUP,
+        tenant_id=azure.get("tenant_id") or AZURE_TENANT_ID,
+        client_id=azure.get("client_id") or AZURE_CLIENT_ID,
+        client_secret=azure.get("client_secret") or AZURE_CLIENT_SECRET,
     )
 
 

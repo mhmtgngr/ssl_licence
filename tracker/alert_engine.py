@@ -33,6 +33,8 @@ class AlertType(str, Enum):
     MAINSTREAM_SUPPORT_END = "mainstream_support_end"
     EXTENDED_SUPPORT_END = "extended_support_end"
     END_OF_LIFE = "end_of_life"
+    SSL_EXPIRY = "ssl_expiry"
+    DOMAIN_REGISTRATION_EXPIRY = "domain_registration_expiry"
 
 
 @dataclass

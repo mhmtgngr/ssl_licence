@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-gear"></i> Settings</h4>
+
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#azure-dns" type="button" role="tab">
+            <i class="bi bi-cloud"></i> Azure DNS
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#letsencrypt" type="button" role="tab">
+            <i class="bi bi-shield-lock"></i> Let's Encrypt
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#alert-settings" type="button" role="tab">
+            <i class="bi bi-bell"></i> Alert Settings
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- Azure DNS Tab -->
+    <div class="tab-pane fade show active" id="azure-dns" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Azure DNS Credentials</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Configure Azure DNS for automated DNS-01 ACME challenges and zone discovery.</p>
+                <form method="post" action="{{ url_for('settings.save_azure_dns') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="tenant_id" class="form-label">Tenant ID</label>
+                            <input type="text" class="form-control" id="tenant_id" name="tenant_id"
+                                   value="{{ azure_dns.get('tenant_id', '') }}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="subscription_id" class="form-label">Subscription ID</label>
+                            <input type="text" class="form-control" id="subscription_id" name="subscription_id"
+                                   value="{{ azure_dns.get('subscription_id', '') }}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="client_id" class="form-label">App / Client ID</label>
+                            <input type="text" class="form-control" id="client_id" name="client_id"
+                                   value="{{ azure_dns.get('client_id', '') }}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="client_secret" class="form-label">Client Secret</label>
+                            <input type="password" class="form-control" id="client_secret" name="client_secret"
+                                   value="{{ azure_dns.get('client_secret', '') }}" placeholder="Enter client secret">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="resource_group" class="form-label">Resource Group</label>
+                            <input type="text" class="form-control" id="resource_group" name="resource_group"
+                                   value="{{ azure_dns.get('resource_group', '') }}" placeholder="my-resource-group">
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                        <button type="submit" class="btn btn-outline-secondary" formaction="{{ url_for('settings.test_azure') }}">
+                            <i class="bi bi-plug"></i> Test Connection
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Let's Encrypt Tab -->
+    <div class="tab-pane fade" id="letsencrypt" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Let's Encrypt / ACME</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Configure Let's Encrypt certificate provisioning settings.</p>
+                <form method="post" action="{{ url_for('settings.save_acme') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="acme_email" class="form-label">ACME Email</label>
+                            <input type="email" class="form-control" id="acme_email" name="email"
+                                   value="{{ acme.get('email', '') }}" placeholder="admin@example.com">
+                            <div class="form-text">Used for Let's Encrypt account registration and expiry notifications.</div>
+                        </div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="acme_staging" name="staging"
+                               {% if acme.get('staging') %}checked{% endif %}>
+                        <label class="form-check-label" for="acme_staging">Staging mode (test certificates, no rate limits)</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Settings Tab -->
+    <div class="tab-pane fade" id="alert-settings" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Alert Settings</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Configure SSL certificate and domain expiry alert thresholds.</p>
+                <form method="post" action="{{ url_for('settings.save_alerts') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="ssl_expiry_enabled" name="ssl_expiry_enabled"
+                               {% if alerts.get('ssl_expiry_enabled', true) %}checked{% endif %}>
+                        <label class="form-check-label" for="ssl_expiry_enabled">Enable SSL certificate expiry alerts</label>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="ssl_warning_days" class="form-label">Warning threshold (days)</label>
+                            <input type="number" class="form-control" id="ssl_warning_days" name="ssl_warning_days"
+                                   value="{{ alerts.get('ssl_warning_days', 30) }}" min="1" max="365">
+                            <div class="form-text">Domains with SSL certificates expiring within this many days will trigger alerts.</div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
