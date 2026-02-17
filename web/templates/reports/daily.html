@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Daily Health Check{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-calendar-check"></i> Daily Health Check</h4>
+    <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to Reports</a>
+</div>
+
+{% if not reports %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-calendar-x"></i>
+            <p>No daily reports yet. The daily check runs automatically via cron, or run it manually:<br>
+            <code>docker exec ssl-licence-dashboard python scripts/daily_check.py</code></p>
+        </div>
+    </div>
+</div>
+{% else %}
+
+{# Date selector #}
+<div class="filter-bar row g-2 mb-4 align-items-center">
+    <div class="col-auto"><label class="col-form-label fw-semibold">Report date:</label></div>
+    {% for r in reports[:30] %}
+    <div class="col-auto">
+        <a href="?date={{ r._file }}" class="btn btn-sm {{ 'btn-primary' if selected == r._file else 'btn-outline-secondary' }}">
+            {{ r._file }}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+{% if detail %}
+{# Summary cards #}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-stat {{ 'text-bg-success' if detail.certificates.ok == detail.certificates.total else 'text-bg-warning' }}">
+            <div class="card-body">
+                <h6><i class="bi bi-globe"></i> Certificates</h6>
+                <h2>{{ detail.certificates.ok }}/{{ detail.certificates.total }}</h2>
+                <small>
+                    {% if detail.certificates.warning %}{{ detail.certificates.warning }} warning{% endif %}
+                    {% if detail.certificates.expired %} {{ detail.certificates.expired }} expired{% endif %}
+                    {% if detail.certificates.failed %} {{ detail.certificates.failed }} failed{% endif %}
+                    {% if detail.certificates.ok == detail.certificates.total %}All OK{% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stat {{ 'text-bg-success' if detail.licences.ok == detail.licences.total else 'text-bg-warning' }}">
+            <div class="card-body">
+                <h6><i class="bi bi-key"></i> Licences</h6>
+                <h2>{{ detail.licences.ok }}/{{ detail.licences.total }}</h2>
+                <small>
+                    {% if detail.licences.warning %}{{ detail.licences.warning }} warning{% endif %}
+                    {% if detail.licences.expired %} {{ detail.licences.expired }} expired{% endif %}
+                    {% if detail.licences.ok == detail.licences.total %}All OK{% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stat {{ 'text-bg-success' if detail.product_alerts.total == 0 else 'text-bg-danger' }}">
+            <div class="card-body">
+                <h6><i class="bi bi-exclamation-triangle"></i> Product Alerts</h6>
+                <h2>{{ detail.product_alerts.total }}</h2>
+                <small>critical/high alerts</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Certificate details #}
+{% if detail.certificates.details %}
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-globe"></i> Certificate Check Results</div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Domain</th><th>Status</th><th>Issuer</th><th>Expiry</th><th>Days Remaining</th></tr></thead>
+                <tbody>
+                    {% for c in detail.certificates.details %}
+                    <tr>
+                        <td class="fw-semibold">{{ c.domain }}</td>
+                        <td>
+                            {% if c.status == 'ok' %}
+                            <span class="badge bg-success">OK</span>
+                            {% elif c.status == 'warning' %}
+                            <span class="badge bg-warning text-dark">WARNING</span>
+                            {% elif c.status == 'expired' %}
+                            <span class="badge bg-danger">EXPIRED</span>
+                            {% else %}
+                            <span class="badge bg-dark">FAIL</span>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ c.issuer.split('organizationName=')[1].split(',')[0] if c.get('issuer') and 'organizationName=' in c.issuer else c.get('issuer', '-') }}</small></td>
+                        <td>{{ c.not_after[:10] if c.get('not_after') else '-' }}</td>
+                        <td>
+                            {% if c.get('days_remaining') is not none %}
+                            <span class="text-{{ 'danger' if c.status == 'expired' else 'warning' if c.status == 'warning' else 'success' }}">{{ c.days_remaining }}d</span>
+                            {% else %}-{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Licence details #}
+{% if detail.licences.details %}
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-key"></i> Licence Status</div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Key</th><th>Type</th><th>Issued To</th><th>Expires</th><th>Days Remaining</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for l in detail.licences.details %}
+                    <tr>
+                        <td><code>{{ l.key }}</code></td>
+                        <td><span class="badge bg-light text-dark">{{ l.licence_type }}</span></td>
+                        <td>{{ l.issued_to }}</td>
+                        <td>{{ l.expires_at }}</td>
+                        <td>
+                            {% if l.days_remaining is not none %}
+                            <span class="text-{{ 'danger' if l.status == 'expired' else 'warning' if l.status == 'warning' else 'success' }}">{{ l.days_remaining }}d</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if l.revoked %}<span class="badge bg-dark">Revoked</span>
+                            {% elif l.status == 'ok' %}<span class="badge bg-success">OK</span>
+                            {% elif l.status == 'warning' %}<span class="badge bg-warning text-dark">WARNING</span>
+                            {% else %}<span class="badge bg-danger">EXPIRED</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Product alerts #}
+{% if detail.product_alerts.details %}
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-exclamation-triangle"></i> Product Alerts</div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Level</th><th>Product</th><th>Vendor</th><th>Type</th><th>Days</th><th>Message</th></tr></thead>
+                <tbody>
+                    {% for a in detail.product_alerts.details %}
+                    <tr>
+                        <td><span class="badge badge-{{ a.level }}">{{ a.level|upper }}</span></td>
+                        <td>{{ a.product }}</td>
+                        <td>{{ a.vendor }}</td>
+                        <td>{{ a.type|replace('_', ' ')|title }}</td>
+                        <td>{{ a.days_remaining }}</td>
+                        <td><small>{{ a.message }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<p class="text-muted"><small>Report generated at {{ detail.checked_at[:19]|replace('T', ' ') }} UTC</small></p>
+
+{% else %}
+{# No date selected — show overview table #}
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead><tr><th>Date</th><th>Certs</th><th>Licences</th><th>Alerts</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for r in reports %}
+                    <tr onclick="location.href='?date={{ r._file }}'" style="cursor:pointer">
+                        <td class="fw-semibold">{{ r._file }}</td>
+                        <td>{{ r.certificates.ok }}/{{ r.certificates.total }}</td>
+                        <td>{{ r.licences.ok }}/{{ r.licences.total }}</td>
+                        <td>{{ r.product_alerts.total }}</td>
+                        <td>
+                            {% set issues = (r.certificates.total - r.certificates.ok) + (r.licences.total - r.licences.ok) + r.product_alerts.total %}
+                            {% if issues == 0 %}
+                            <span class="badge bg-success">ALL OK</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">{{ issues }} ISSUE{{ 's' if issues > 1 }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

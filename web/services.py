@@ -5,6 +5,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = str(PROJECT_ROOT / "data" / "products" / "registry.json")
 LICENCE_STORAGE = str(PROJECT_ROOT / "data" / "licences.json")
+CERT_CHECKS_PATH = PROJECT_ROOT / "data" / "cert_checks.json"
 SSLCERT_BASE_DIR = str(PROJECT_ROOT / "sslcert")
 
 
@@ -62,3 +63,37 @@ def get_certificate_manager():
 def get_certificate_monitor():
     from sslcert.monitor import CertificateMonitor
     return CertificateMonitor()
+
+
+def get_cert_checks_store():
+    """Return the CertCheckStore for persisting certificate check results."""
+    return CertCheckStore(CERT_CHECKS_PATH)
+
+
+class CertCheckStore:
+    """Simple JSON-file store for certificate check history."""
+
+    def __init__(self, path: Path):
+        self._path = path
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _load(self) -> list[dict]:
+        import json
+        if self._path.exists():
+            return json.loads(self._path.read_text())
+        return []
+
+    def _save(self, data: list[dict]) -> None:
+        import json
+        self._path.write_text(json.dumps(data, indent=2, default=str))
+
+    def add(self, entry: dict) -> None:
+        data = self._load()
+        data.insert(0, entry)
+        self._save(data)
+
+    def list_all(self) -> list[dict]:
+        return self._load()
+
+    def clear(self) -> None:
+        self._save([])

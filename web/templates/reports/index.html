@@ -16,6 +16,9 @@
     <li class="nav-item">
         <a class="nav-link {% if report_type == 'dashboard' %}active{% endif %}" href="?type=dashboard">Dashboard</a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('reports.daily') }}"><i class="bi bi-calendar-check"></i> Daily Check</a>
+    </li>
 </ul>
 
 {% if report_type == 'expiry' %}
