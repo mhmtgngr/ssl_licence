@@ -42,6 +42,46 @@
     </div>
 </div>
 
+{# Domain / SSL summary #}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-dark">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-globe2"></i> Tracked Domains</h6>
+                <h2>{{ domain_summary.total_domains }}</h2>
+                <small>{{ domain_summary.parent_domains }} root domain{{ 's' if domain_summary.parent_domains != 1 }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-success">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-shield-check"></i> SSL OK</h6>
+                <h2>{{ domain_summary.ssl_ok }}</h2>
+                <small>certificates valid</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-warning">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-exclamation-triangle"></i> SSL Expiring</h6>
+                <h2>{{ domain_summary.ssl_warning }}</h2>
+                <small>within warning threshold</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-danger">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-x-circle"></i> SSL Issues</h6>
+                <h2>{{ domain_summary.ssl_expired }}</h2>
+                <small>expired or unreachable</small>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-3 mb-4">
     <div class="col-md-6">
         <div class="card h-100">

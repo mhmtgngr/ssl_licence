@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Add Domain{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-globe2"></i> Add Domain</h4>
+    <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<div class="card" style="max-width: 640px;">
+    <div class="card-body">
+        <p class="text-muted mb-3">Enter a domain to track. DNS, SOA, hosting, and SSL information will be looked up automatically.</p>
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label">Hostname <span class="text-danger">*</span></label>
+                <input type="text" name="hostname" class="form-control" placeholder="example.com or sub.example.com" required>
+                <div class="form-text">Enter a root domain, subdomain, or wildcard (*.example.com)</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">SSL Warning Threshold (days)</label>
+                <input type="number" name="warning_days" class="form-control" value="30" min="1" style="width:120px;">
+                <div class="form-text">Alert when SSL certificate is expiring within this many days</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Tags</label>
+                <input type="text" name="tags" class="form-control" placeholder="production, web, critical">
+                <div class="form-text">Comma-separated tags for organizing domains</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Notes</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add & Check</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -33,7 +33,7 @@
 {% if detail %}
 {# Summary cards #}
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card card-stat {{ 'text-bg-success' if detail.certificates.ok == detail.certificates.total else 'text-bg-warning' }}">
             <div class="card-body">
                 <h6><i class="bi bi-globe"></i> Certificates</h6>
@@ -47,7 +47,22 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    {% if detail.get('domains') %}
+    <div class="col-md-3">
+        <div class="card card-stat {{ 'text-bg-success' if detail.domains.ok == detail.domains.total else 'text-bg-warning' }}">
+            <div class="card-body">
+                <h6><i class="bi bi-globe2"></i> Domains</h6>
+                <h2>{{ detail.domains.ok }}/{{ detail.domains.total }}</h2>
+                <small>
+                    {% if detail.domains.get('warning', 0) %}{{ detail.domains.warning }} warning{% endif %}
+                    {% if detail.domains.get('ip_changed', 0) %} {{ detail.domains.ip_changed }} IP changed{% endif %}
+                    {% if detail.domains.ok == detail.domains.total %}All OK{% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="col-md-3">
         <div class="card card-stat {{ 'text-bg-success' if detail.licences.ok == detail.licences.total else 'text-bg-warning' }}">
             <div class="card-body">
                 <h6><i class="bi bi-key"></i> Licences</h6>
@@ -60,7 +75,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card card-stat {{ 'text-bg-success' if detail.product_alerts.total == 0 else 'text-bg-danger' }}">
             <div class="card-body">
                 <h6><i class="bi bi-exclamation-triangle"></i> Product Alerts</h6>
@@ -101,6 +116,42 @@
                             <span class="text-{{ 'danger' if c.status == 'expired' else 'warning' if c.status == 'warning' else 'success' }}">{{ c.days_remaining }}d</span>
                             {% else %}-{% endif %}
                         </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Domain details #}
+{% if detail.get('domains') and detail.domains.details %}
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-globe2"></i> Tracked Domains</div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Hostname</th><th>Type</th><th>SSL Status</th><th>SSL Expiry</th><th>Days Left</th><th>IP</th><th>IP Changed</th></tr></thead>
+                <tbody>
+                    {% for d in detail.domains.details %}
+                    <tr>
+                        <td class="fw-semibold">{{ d.hostname }}</td>
+                        <td><span class="badge bg-light text-dark">{{ d.domain_type|title }}</span></td>
+                        <td>
+                            {% if d.ssl_status == 'ok' %}<span class="badge bg-success">OK</span>
+                            {% elif d.ssl_status == 'warning' %}<span class="badge bg-warning text-dark">WARNING</span>
+                            {% elif d.ssl_status == 'expired' %}<span class="badge bg-danger">EXPIRED</span>
+                            {% else %}<span class="badge bg-dark">FAIL</span>{% endif %}
+                        </td>
+                        <td>{{ d.ssl_expiry[:10] if d.get('ssl_expiry') else '-' }}</td>
+                        <td>
+                            {% if d.ssl_days_remaining is not none %}
+                            <span class="text-{{ 'danger' if d.ssl_status == 'expired' else 'warning' if d.ssl_status == 'warning' else 'success' }}">{{ d.ssl_days_remaining }}d</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td><code>{{ d.current_ip or '-' }}</code></td>
+                        <td>{% if d.ip_changed %}<span class="badge bg-info">CHANGED</span> <small>was {{ d.previous_ip }}</small>{% else %}-{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -180,16 +231,18 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
-                <thead><tr><th>Date</th><th>Certs</th><th>Licences</th><th>Alerts</th><th>Status</th></tr></thead>
+                <thead><tr><th>Date</th><th>Certs</th><th>Domains</th><th>Licences</th><th>Alerts</th><th>Status</th></tr></thead>
                 <tbody>
                     {% for r in reports %}
                     <tr onclick="location.href='?date={{ r._file }}'" style="cursor:pointer">
                         <td class="fw-semibold">{{ r._file }}</td>
                         <td>{{ r.certificates.ok }}/{{ r.certificates.total }}</td>
+                        <td>{% if r.get('domains') %}{{ r.domains.ok }}/{{ r.domains.total }}{% else %}-{% endif %}</td>
                         <td>{{ r.licences.ok }}/{{ r.licences.total }}</td>
                         <td>{{ r.product_alerts.total }}</td>
                         <td>
-                            {% set issues = (r.certificates.total - r.certificates.ok) + (r.licences.total - r.licences.ok) + r.product_alerts.total %}
+                            {% set domain_issues = (r.domains.total - r.domains.ok) if r.get('domains') else 0 %}
+                            {% set issues = (r.certificates.total - r.certificates.ok) + domain_issues + (r.licences.total - r.licences.ok) + r.product_alerts.total %}
                             {% if issues == 0 %}
                             <span class="badge bg-success">ALL OK</span>
                             {% else %}

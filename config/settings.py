@@ -23,6 +23,11 @@ LICENCE_SIGNING_SECRET = os.environ.get("LICENCE_SECRET", "change-me-in-producti
 CERT_EXPIRY_WARNING_DAYS = 30
 MONITOR_CHECK_INTERVAL_HOURS = 24
 
+# Let's Encrypt / ACME
+ACME_EMAIL = os.environ.get("ACME_EMAIL", "")
+LETSENCRYPT_DIR = PROJECT_ROOT / "data" / "letsencrypt"
+CERTBOT_STAGING = os.environ.get("CERTBOT_STAGING", "false").lower() == "true"
+
 # Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

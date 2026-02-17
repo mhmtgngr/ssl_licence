@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ domain.hostname }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-pencil"></i> Edit {{ domain.hostname }}</h4>
+    <a href="{{ url_for('domains.detail', domain_id=domain.domain_id) }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<div class="card" style="max-width: 640px;">
+    <div class="card-body">
+        {# Read-only info #}
+        <div class="mb-3 p-3 bg-light rounded">
+            <div class="row">
+                <div class="col-sm-4"><strong>Hostname</strong><br>{{ domain.hostname }}</div>
+                <div class="col-sm-4"><strong>IP</strong><br><code>{{ domain.ip_address or '-' }}</code></div>
+                <div class="col-sm-4"><strong>SSL</strong><br>
+                    {% if domain.ssl_status == 'ok' %}<span class="badge bg-success">OK</span>
+                    {% elif domain.ssl_status == 'warning' %}<span class="badge bg-warning text-dark">WARNING</span>
+                    {% elif domain.ssl_status == 'expired' %}<span class="badge bg-danger">EXPIRED</span>
+                    {% elif domain.ssl_status == 'fail' %}<span class="badge bg-dark">FAIL</span>
+                    {% else %}<span class="badge bg-secondary">-</span>{% endif %}
+                    {% if domain.ssl_days_remaining is not none %} ({{ domain.ssl_days_remaining }}d){% endif %}
+                </div>
+            </div>
+        </div>
+
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    {% for s in DomainStatus %}
+                    <option value="{{ s.value }}" {% if domain.status == s %}selected{% endif %}>{{ s.value|replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">SSL Warning Threshold (days)</label>
+                <input type="number" name="warning_days" class="form-control" value="{{ domain.warning_days }}" min="1" style="width:120px;">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Tags</label>
+                <input type="text" name="tags" class="form-control" value="{{ domain.tags|join(', ') }}" placeholder="production, web, critical">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Notes</label>
+                <textarea name="notes" class="form-control" rows="3">{{ domain.notes }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save Changes</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

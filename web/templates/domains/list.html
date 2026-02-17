@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Domains{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-globe2"></i> Domains</h4>
+    <div>
+        <a href="{{ url_for('domains.discover') }}" class="btn btn-outline-primary"><i class="bi bi-search"></i> Discover Subdomains</a>
+        <a href="{{ url_for('domains.add_domain') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Domain</a>
+    </div>
+</div>
+
+{# Summary cards #}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-primary">
+            <div class="card-body"><h6><i class="bi bi-globe2"></i> Total Domains</h6><h2>{{ summary.total_domains }}</h2></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-success">
+            <div class="card-body"><h6><i class="bi bi-shield-check"></i> SSL OK</h6><h2>{{ summary.ssl_ok }}</h2></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-warning">
+            <div class="card-body"><h6><i class="bi bi-exclamation-triangle"></i> SSL Expiring</h6><h2>{{ summary.ssl_warning }}</h2></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-danger">
+            <div class="card-body"><h6><i class="bi bi-x-circle"></i> SSL Expired/Fail</h6><h2>{{ summary.ssl_expired }}</h2></div>
+        </div>
+    </div>
+</div>
+
+{# Filters #}
+<form method="get" class="filter-bar row g-2 mb-4 align-items-center">
+    <div class="col-auto">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search..." value="{{ q }}" style="width:180px;">
+    </div>
+    <div class="col-auto">
+        <select name="status" class="form-select form-select-sm">
+            <option value="">All Statuses</option>
+            {% for s in DomainStatus %}
+            <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ s.value|replace('_', ' ')|title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="type" class="form-select form-select-sm">
+            <option value="">All Types</option>
+            {% for t in DomainType %}
+            <option value="{{ t.value }}" {% if type_filter == t.value %}selected{% endif %}>{{ t.value|title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="parent" class="form-select form-select-sm">
+            <option value="">All Parents</option>
+            {% for p in parents %}
+            <option value="{{ p }}" {% if parent_filter == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
+        {% if q or status_filter or type_filter or parent_filter %}
+        <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
+        {% endif %}
+    </div>
+</form>
+
+{% if domains %}
+<div class="card">
+    <div class="card-body table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Hostname</th>
+                    <th>Type</th>
+                    <th>IP Address</th>
+                    <th>SSL Status</th>
+                    <th>SSL Expiry</th>
+                    <th>Days Left</th>
+                    <th>Domain Expiry</th>
+                    <th>Hosting</th>
+                    <th>Last Checked</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in domains %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('domains.detail', domain_id=d.domain_id) }}" class="fw-semibold text-decoration-none">
+                            {{ d.hostname }}
+                        </a>
+                        {% if d.auto_discovered %}<span class="badge bg-light text-muted ms-1" title="Auto-discovered">auto</span>{% endif %}
+                    </td>
+                    <td><span class="badge bg-light text-dark">{{ d.domain_type.value|title }}</span></td>
+                    <td><code>{{ d.ip_address or '-' }}</code></td>
+                    <td>
+                        {% if d.ssl_status == 'ok' %}
+                        <span class="badge bg-success">OK</span>
+                        {% elif d.ssl_status == 'warning' %}
+                        <span class="badge bg-warning text-dark">WARNING</span>
+                        {% elif d.ssl_status == 'expired' %}
+                        <span class="badge bg-danger">EXPIRED</span>
+                        {% elif d.ssl_status == 'fail' %}
+                        <span class="badge bg-dark">FAIL</span>
+                        {% else %}
+                        <span class="badge bg-secondary">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ d.ssl_expiry.strftime('%Y-%m-%d') if d.ssl_expiry else '-' }}</td>
+                    <td>
+                        {% if d.ssl_days_remaining is not none %}
+                        <span class="text-{{ 'danger' if d.ssl_status == 'expired' else 'warning' if d.ssl_status == 'warning' else 'success' }}">
+                            {{ d.ssl_days_remaining }}d
+                        </span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td>
+                        {% if d.registration_expiry %}
+                        <span class="text-{{ 'danger' if d.registration_days_remaining is not none and d.registration_days_remaining < 30 else 'warning' if d.registration_days_remaining is not none and d.registration_days_remaining < 90 else 'success' }}">
+                            {{ d.registration_expiry.strftime('%Y-%m-%d') }}
+                        </span>
+                        {% if d.registration_days_remaining is not none %}<small class="text-muted"> ({{ d.registration_days_remaining }}d)</small>{% endif %}
+                        {% else %}-{% endif %}
+                    </td>
+                    <td><small>{{ d.hosting_provider or '-' }}</small></td>
+                    <td><small class="text-muted">{{ d.last_checked.strftime('%Y-%m-%d %H:%M') if d.last_checked else 'never' }}</small></td>
+                    <td class="text-end" style="white-space:nowrap;">
+                        <form method="post" action="{{ url_for('domains.refresh_domain', domain_id=d.domain_id) }}" style="display:inline">
+                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+                        </form>
+                        <form method="post" action="{{ url_for('domains.delete_domain', domain_id=d.domain_id) }}" style="display:inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete {{ d.hostname }}?')"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-globe2"></i>
+            <p>No domains tracked yet.</p>
+            <a href="{{ url_for('domains.add_domain') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Your First Domain</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

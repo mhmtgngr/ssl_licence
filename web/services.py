@@ -7,6 +7,8 @@ REGISTRY_PATH = str(PROJECT_ROOT / "data" / "products" / "registry.json")
 LICENCE_STORAGE = str(PROJECT_ROOT / "data" / "licences.json")
 CERT_CHECKS_PATH = PROJECT_ROOT / "data" / "cert_checks.json"
 SSLCERT_BASE_DIR = str(PROJECT_ROOT / "sslcert")
+DOMAIN_REGISTRY_PATH = str(PROJECT_ROOT / "data" / "domains" / "registry.json")
+LETSENCRYPT_DIR = str(PROJECT_ROOT / "data" / "letsencrypt")
 
 
 def get_registry():
@@ -63,6 +65,26 @@ def get_certificate_manager():
 def get_certificate_monitor():
     from sslcert.monitor import CertificateMonitor
     return CertificateMonitor()
+
+
+def get_domain_registry():
+    from tracker.domain_registry import DomainRegistry
+    return DomainRegistry(DOMAIN_REGISTRY_PATH)
+
+
+def get_dns_service():
+    from sslcert.dns_discovery import DnsService
+    return DnsService()
+
+
+def get_acme_service():
+    from sslcert.acme_service import AcmeService
+    from config.settings import ACME_EMAIL, LETSENCRYPT_DIR, CERTBOT_STAGING
+    return AcmeService(
+        letsencrypt_dir=str(LETSENCRYPT_DIR),
+        email=ACME_EMAIL,
+        staging=CERTBOT_STAGING,
+    )
 
 
 def get_cert_checks_store():

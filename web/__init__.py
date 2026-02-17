@@ -26,6 +26,7 @@ def create_app():
     from web.routes.analysis import bp as analysis_bp
     from web.routes.licences import bp as licences_bp
     from web.routes.certificates import bp as certificates_bp
+    from web.routes.domains import bp as domains_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(products_bp, url_prefix="/products")
@@ -34,17 +35,21 @@ def create_app():
     app.register_blueprint(analysis_bp, url_prefix="/analysis")
     app.register_blueprint(licences_bp, url_prefix="/licences")
     app.register_blueprint(certificates_bp, url_prefix="/certificates")
+    app.register_blueprint(domains_bp, url_prefix="/domains")
 
     @app.context_processor
     def inject_enums():
         from tracker.product import ProductCategory, LicenceType, SupportStatus
         from tracker.alert_engine import AlertLevel, AlertType
+        from tracker.domain import DomainType, DomainStatus
         return {
             "ProductCategory": ProductCategory,
             "LicenceType": LicenceType,
             "SupportStatus": SupportStatus,
             "AlertLevel": AlertLevel,
             "AlertType": AlertType,
+            "DomainType": DomainType,
+            "DomainStatus": DomainStatus,
         }
 
     return app

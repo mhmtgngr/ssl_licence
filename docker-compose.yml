@@ -4,6 +4,10 @@ services:
     container_name: ssl-licence-dashboard
     ports:
       - "5000:5000"
+      - "80:80"
     volumes:
       - ./data:/app/data
+    environment:
+      - ACME_EMAIL=${ACME_EMAIL:-}
+      - CERTBOT_STAGING=${CERTBOT_STAGING:-false}
     restart: unless-stopped
