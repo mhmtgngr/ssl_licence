@@ -13,7 +13,7 @@ license = {text = "MIT"}
 ssl-licence = "main:main"
 
 [tool.setuptools.packages.find]
-include = ["ssl*", "licence*", "config*"]
+include = ["sslcert*", "licence*", "config*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
