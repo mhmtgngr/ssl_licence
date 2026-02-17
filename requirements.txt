@@ -1,0 +1,8 @@
+# No external dependencies required for core functionality.
+# The project uses only Python standard library modules:
+#   - ssl, socket, subprocess, hashlib, hmac, secrets
+#   - json, datetime, pathlib, os, re, uuid, string
+#
+# Optional dependencies for development/testing:
+# pytest>=7.0
+# pytest-cov>=4.0

@@ -1,0 +1,1 @@
+"""Additional licence validation strategies."""

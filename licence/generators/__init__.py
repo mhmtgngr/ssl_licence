@@ -1,0 +1,1 @@
+"""Licence key generation strategies."""
