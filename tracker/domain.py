@@ -7,6 +7,30 @@ from enum import Enum
 from typing import Optional
 
 
+# Known two-part public suffixes (ccSLDs) for correct domain classification
+TWO_PART_TLDS = {
+    "com.tr", "org.tr", "net.tr", "gov.tr", "edu.tr", "gen.tr",
+    "co.uk", "org.uk", "gov.uk", "ac.uk", "me.uk", "net.uk",
+    "com.au", "org.au", "gov.au", "net.au", "edu.au",
+    "com.br", "org.br", "gov.br", "net.br",
+    "co.jp", "or.jp", "ne.jp", "ac.jp", "go.jp",
+    "co.in", "org.in", "gov.in", "net.in", "ac.in",
+    "co.za", "org.za", "gov.za", "net.za", "ac.za",
+    "co.nz", "org.nz", "net.nz", "govt.nz", "ac.nz",
+    "co.kr", "or.kr", "go.kr", "ac.kr", "ne.kr",
+    "com.mx", "org.mx", "gob.mx", "net.mx", "edu.mx",
+    "com.cn", "org.cn", "gov.cn", "net.cn", "edu.cn",
+    "com.tw", "org.tw", "gov.tw", "net.tw", "edu.tw",
+    "co.il", "org.il", "gov.il", "ac.il", "net.il",
+    "com.ar", "org.ar", "gov.ar", "net.ar", "edu.ar",
+    "com.pl", "org.pl", "gov.pl", "net.pl", "edu.pl",
+    "co.id", "or.id", "go.id", "ac.id", "web.id",
+    "com.my", "org.my", "gov.my", "net.my", "edu.my",
+    "com.sg", "org.sg", "gov.sg", "net.sg", "edu.sg",
+    "com.hk", "org.hk", "gov.hk", "net.hk", "edu.hk",
+}
+
+
 class DomainType(str, Enum):
     """Classification of domain entry."""
 
@@ -94,9 +118,13 @@ class Domain:
             return
 
         parts = hostname.split(".")
-        if len(parts) > 2:
+        suffix = ".".join(parts[-2:]) if len(parts) >= 2 else ""
+        is_ccsld = suffix in TWO_PART_TLDS
+        effective_parts = len(parts) - 1 if is_ccsld else len(parts)
+
+        if len(parts) > 2 and effective_parts > 2:
             self.domain_type = DomainType.SUBDOMAIN
-            self.parent_domain = ".".join(parts[-2:])
+            self.parent_domain = ".".join(parts[-3:]) if is_ccsld else ".".join(parts[-2:])
         else:
             self.domain_type = DomainType.ROOT
             self.parent_domain = hostname

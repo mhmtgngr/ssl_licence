@@ -4,6 +4,17 @@ import socket
 import subprocess
 from typing import Optional
 
+from tracker.domain import TWO_PART_TLDS
+
+
+def _get_root_domain(domain: str) -> str:
+    """Extract root domain, handling two-part TLDs like .com.tr, .co.uk."""
+    parts = domain.split(".")
+    suffix = ".".join(parts[-2:]) if len(parts) >= 2 else ""
+    if suffix in TWO_PART_TLDS and len(parts) >= 3:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:]) if len(parts) >= 2 else domain
+
 
 # Common subdomain prefixes to probe during discovery
 COMMON_SUBDOMAINS = [
@@ -167,8 +178,7 @@ class DnsService:
         from datetime import datetime, timezone
 
         # Always query the root domain
-        parts = domain.split(".")
-        root_domain = ".".join(parts[-2:]) if len(parts) >= 2 else domain
+        root_domain = _get_root_domain(domain)
 
         output = _run_whois(root_domain)
         if not output:
@@ -178,8 +188,14 @@ class DnsService:
         for line in output.splitlines():
             line_lower = line.strip().lower()
 
-            # Registrar
+            # Registrar — standard format
             if line_lower.startswith("registrar:"):
+                val = line.split(":", 1)[1].strip()
+                if val and not result.get("registrar"):
+                    result["registrar"] = val
+
+            # Registrar — Turkish WHOIS format (Organization Name)
+            if "organization name" in line_lower and ":" in line:
                 val = line.split(":", 1)[1].strip()
                 if val and not result.get("registrar"):
                     result["registrar"] = val
@@ -187,20 +203,20 @@ class DnsService:
             # Expiry date — multiple possible field names
             if any(key in line_lower for key in [
                 "registry expiry date:", "registrar registration expiration date:",
-                "expiration date:", "expires on:", "expiry date:", "paid-till:",
+                "expiration date:", "expires on", "expiry date:", "paid-till:",
                 "expire date:", "renewal date:",
             ]):
-                val = line.split(":", 1)[1].strip() if ":" in line else ""
+                val = line.split(":", 1)[1].strip().rstrip(".") if ":" in line else ""
                 parsed = self._parse_whois_date(val)
                 if parsed and not result.get("registration_expiry"):
                     result["registration_expiry"] = parsed
 
             # Creation date
             if any(key in line_lower for key in [
-                "creation date:", "created:", "created on:", "registration date:",
+                "creation date:", "created:", "created on", "registration date:",
                 "created date:", "domain name commencement date:",
             ]):
-                val = line.split(":", 1)[1].strip() if ":" in line else ""
+                val = line.split(":", 1)[1].strip().rstrip(".") if ":" in line else ""
                 parsed = self._parse_whois_date(val)
                 if parsed and not result.get("domain_created_date"):
                     result["domain_created_date"] = parsed
@@ -235,6 +251,7 @@ class DnsService:
             "%Y-%m-%dT%H:%M:%S%z",
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%d",
+            "%Y-%b-%d",              # Turkish WHOIS: 2022-Sep-14
             "%d-%b-%Y",
             "%d.%m.%Y",
             "%d/%m/%Y",
@@ -273,8 +290,7 @@ class DnsService:
     def full_lookup(self, hostname: str) -> dict:
         """Run all DNS lookups for a hostname and return consolidated results."""
         # Determine root domain for NS/SOA lookups
-        parts = hostname.split(".")
-        root_domain = ".".join(parts[-2:]) if len(parts) >= 2 else hostname
+        root_domain = _get_root_domain(hostname)
 
         ip = self.lookup_ip(hostname)
         nameservers = self.lookup_nameservers(root_domain)
