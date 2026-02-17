@@ -26,8 +26,8 @@ import sys
 from datetime import datetime
 
 from config.settings import LICENCE_SIGNING_SECRET, LICENCE_STORAGE_PATH
-from ssl.certificate import CertificateManager, CertificateInfo
-from ssl.monitor import CertificateMonitor
+from sslcert.certificate import CertificateManager, CertificateInfo
+from sslcert.monitor import CertificateMonitor
 from licence.manager import LicenceManager
 from tracker.product import Product, ProductCategory, LicenceType
 from tracker.registry import ProductRegistry

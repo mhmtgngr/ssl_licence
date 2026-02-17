@@ -8,7 +8,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ssl.monitor import CertificateMonitor
+from sslcert.monitor import CertificateMonitor
 from config.settings import CERT_EXPIRY_WARNING_DAYS
 
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Base paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SSL_DIR = PROJECT_ROOT / "ssl"
+SSL_DIR = PROJECT_ROOT / "sslcert"
 LICENCE_DIR = PROJECT_ROOT / "licence"
 
 # SSL defaults

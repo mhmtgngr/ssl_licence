@@ -1,6 +1,6 @@
 """SSL utility functions."""
 
-from ssl.utils.helpers import (
+from sslcert.utils.helpers import (
     is_certificate_valid,
     parse_pem_chain,
     fingerprint,

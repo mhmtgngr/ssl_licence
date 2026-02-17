@@ -2,7 +2,7 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
-from ssl.certificate import CertificateManager, CertificateInfo
+from sslcert.certificate import CertificateManager, CertificateInfo
 
 
 class TestCertificateInfo(unittest.TestCase):
