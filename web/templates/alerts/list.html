@@ -42,6 +42,7 @@
                         <th>Days Remaining</th>
                         <th>Target Date</th>
                         <th>Message</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -54,6 +55,18 @@
                         <td>{{ alert.days_remaining }}</td>
                         <td>{{ alert.target_date.strftime('%Y-%m-%d') }}</td>
                         <td><small>{{ alert.message }}</small></td>
+                        <td>
+                            {% if not alert.acknowledged %}
+                            <form method="post" action="{{ url_for('alerts.acknowledge') }}" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="product_id" value="{{ alert.product_id }}">
+                                <input type="hidden" name="alert_type" value="{{ alert.alert_type.value }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Acknowledge"><i class="bi bi-check-lg"></i></button>
+                            </form>
+                            {% else %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i> Acked</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

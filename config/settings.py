@@ -28,6 +28,16 @@ ACME_EMAIL = os.environ.get("ACME_EMAIL", "")
 LETSENCRYPT_DIR = PROJECT_ROOT / "data" / "letsencrypt"
 CERTBOT_STAGING = os.environ.get("CERTBOT_STAGING", "false").lower() == "true"
 
+# Azure DNS integration
+AZURE_SUBSCRIPTION_ID = os.environ.get("AZURE_SUBSCRIPTION_ID", "")
+AZURE_RESOURCE_GROUP = os.environ.get("AZURE_RESOURCE_GROUP", "")
+AZURE_TENANT_ID = os.environ.get("AZURE_TENANT_ID", "")
+AZURE_CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", "")
+AZURE_CLIENT_SECRET = os.environ.get("AZURE_CLIENT_SECRET", "")
+
+# Scheduler
+SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
+
 # Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

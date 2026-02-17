@@ -64,6 +64,7 @@
 </div>
 
 <form method="post" action="{{ url_for('certificates.clear_history') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Clear all check history?')">
         <i class="bi bi-trash"></i> Clear History
     </button>

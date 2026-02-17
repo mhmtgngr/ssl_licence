@@ -118,6 +118,37 @@ class TestAlertEngine(unittest.TestCase):
         self.assertIn("by_level", summary)
         self.assertGreater(summary["total_alerts"], 0)
 
+    def test_acknowledge_alert(self):
+        p = self._add_product(days_to_expiry=5)
+        engine = AlertEngine(self.registry)
+        engine.evaluate_all()
+        alerts = engine.get_alerts()
+        self.assertTrue(len(alerts) > 0)
+        alert = alerts[0]
+        result = engine.acknowledge_alert(alert.product_id, alert.alert_type.value)
+        self.assertTrue(result)
+        self.assertTrue(alert.acknowledged)
+
+    def test_acknowledge_nonexistent_returns_false(self):
+        engine = AlertEngine(self.registry)
+        engine.evaluate_all()
+        result = engine.acknowledge_alert("nonexistent", "licence_expiry")
+        self.assertFalse(result)
+
+    def test_get_unacknowledged(self):
+        self._add_product(days_to_expiry=5, name="Product A")
+        self._add_product(days_to_expiry=3, name="Product B")
+        engine = AlertEngine(self.registry)
+        engine.evaluate_all()
+        all_alerts = engine.get_alerts()
+        total = len(all_alerts)
+        self.assertGreater(total, 0)
+
+        # Acknowledge one
+        engine.acknowledge_alert(all_alerts[0].product_id, all_alerts[0].alert_type.value)
+        unacked = engine.get_unacknowledged()
+        self.assertEqual(len(unacked), total - 1)
+
 
 if __name__ == "__main__":
     unittest.main()

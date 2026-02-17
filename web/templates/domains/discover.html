@@ -10,6 +10,7 @@
     <div class="card-body">
         <p class="text-muted mb-3">Enter a root domain to discover its subdomains. Common prefixes (www, mail, api, cdn, etc.) will be probed via DNS resolution.</p>
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="discover">
             <div class="mb-3">
                 <label class="form-label">Root Domain <span class="text-danger">*</span></label>
@@ -27,6 +28,7 @@
     </div>
     <div class="card-body">
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="add_selected">
             <div class="table-responsive">
                 <table class="table table-sm table-hover mb-3">

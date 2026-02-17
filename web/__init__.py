@@ -3,11 +3,14 @@
 import sys
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, jsonify
+from flask_wtf.csrf import CSRFProtect
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+csrf = CSRFProtect()
 
 
 def create_app():
@@ -18,6 +21,9 @@ def create_app():
         static_folder="static",
     )
     app.config["SECRET_KEY"] = "dev-dashboard-key"
+    app.config["WTF_CSRF_TIME_LIMIT"] = 3600
+
+    csrf.init_app(app)
 
     from web.routes.dashboard import bp as dashboard_bp
     from web.routes.products import bp as products_bp
@@ -27,6 +33,7 @@ def create_app():
     from web.routes.licences import bp as licences_bp
     from web.routes.certificates import bp as certificates_bp
     from web.routes.domains import bp as domains_bp
+    from web.routes.api import bp as api_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(products_bp, url_prefix="/products")
@@ -36,6 +43,12 @@ def create_app():
     app.register_blueprint(licences_bp, url_prefix="/licences")
     app.register_blueprint(certificates_bp, url_prefix="/certificates")
     app.register_blueprint(domains_bp, url_prefix="/domains")
+    app.register_blueprint(api_bp, url_prefix="/api/v1")
+    csrf.exempt(api_bp)
+
+    @app.route("/health")
+    def health_check():
+        return jsonify({"status": "healthy", "version": "0.1.0"}), 200
 
     @app.context_processor
     def inject_enums():
@@ -51,5 +64,10 @@ def create_app():
             "DomainType": DomainType,
             "DomainStatus": DomainStatus,
         }
+
+    # Start scheduler (only in non-testing mode)
+    if not app.config.get("TESTING"):
+        from web.scheduler import init_scheduler
+        init_scheduler(app)
 
     return app

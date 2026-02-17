@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}OCSP Check{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-shield-exclamation"></i> OCSP Revocation Check</h4>
+    <a href="{{ url_for('certificates.list_certs') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<div class="card mb-4" style="max-width: 640px;">
+    <div class="card-body">
+        <p class="text-muted mb-3">Check if a domain's SSL certificate has been revoked using OCSP (Online Certificate Status Protocol).</p>
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="input-group">
+                <input type="text" name="domain" class="form-control" placeholder="example.com" value="{{ domain }}" required>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Check OCSP</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if result %}
+<div class="card" style="max-width: 640px;">
+    <div class="card-header d-flex align-items-center gap-2">
+        {% if result.status == 'good' %}
+        <span class="badge bg-success">GOOD</span>
+        {% elif result.status == 'revoked' %}
+        <span class="badge bg-danger">REVOKED</span>
+        {% elif result.status == 'unknown' %}
+        <span class="badge bg-warning text-dark">UNKNOWN</span>
+        {% else %}
+        <span class="badge bg-dark">ERROR</span>
+        {% endif %}
+        <span>OCSP Status for <strong>{{ result.domain }}</strong></span>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm mb-0">
+            <tbody>
+                <tr><th style="width:35%;">Status</th><td>
+                    <span class="fw-semibold text-{{ 'success' if result.status == 'good' else 'danger' if result.status == 'revoked' else 'warning' }}">
+                        {{ result.status|upper }}
+                    </span>
+                </td></tr>
+                {% if result.responder_url %}
+                <tr><th>OCSP Responder</th><td><code class="small">{{ result.responder_url }}</code></td></tr>
+                {% endif %}
+                {% if result.revocation_time %}
+                <tr><th>Revocation Time</th><td>{{ result.revocation_time }}</td></tr>
+                {% endif %}
+                {% if result.revocation_reason %}
+                <tr><th>Reason</th><td>{{ result.revocation_reason }}</td></tr>
+                {% endif %}
+                {% if result.error %}
+                <tr><th>Error</th><td class="text-danger">{{ result.error }}</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

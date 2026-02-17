@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Import Domains{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-cloud-download"></i> Import Domains</h4>
+    <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<ul class="nav nav-pills mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {{ 'active' if active_tab|default('azure') == 'azure' }}"
+                id="azure-tab" data-bs-toggle="pill" data-bs-target="#azure" type="button" role="tab">
+            <i class="bi bi-cloud"></i> Azure DNS
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {{ 'active' if active_tab|default('') == 'zone-transfer' }}"
+                id="zt-tab" data-bs-toggle="pill" data-bs-target="#zone-transfer" type="button" role="tab">
+            <i class="bi bi-hdd-network"></i> Zone Transfer (AXFR)
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    {# ── Azure DNS Tab ── #}
+    <div class="tab-pane fade {{ 'show active' if active_tab|default('azure') == 'azure' }}" id="azure" role="tabpanel">
+
+        {% if not azure_configured %}
+        <div class="card" style="max-width:640px;">
+            <div class="card-body">
+                <div class="empty-state">
+                    <i class="bi bi-cloud-slash"></i>
+                    <p>Azure DNS is not configured.</p>
+                    <p class="text-muted small">
+                        Set <code>AZURE_SUBSCRIPTION_ID</code> and either configure a managed identity
+                        or set <code>AZURE_TENANT_ID</code>, <code>AZURE_CLIENT_ID</code>, and <code>AZURE_CLIENT_SECRET</code>.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        {% elif azure_records is defined %}
+        {# Phase 2: Records from selected zone #}
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-check2-square"></i> {{ azure_records|length }} record{{ 's' if azure_records|length != 1 }}
+                in <strong>{{ zone_name }}</strong>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('domains.import_azure') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="add_selected">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-3">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;">
+                                        <input type="checkbox" id="selectAllAzure"
+                                               onclick="document.querySelectorAll('#azure input[name=selected]').forEach(c=>c.checked=this.checked)">
+                                    </th>
+                                    <th>Hostname</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in azure_records %}
+                                <tr>
+                                    <td><input type="checkbox" name="selected" value="{{ r.hostname }}"></td>
+                                    <td class="fw-semibold">{{ r.hostname }}</td>
+                                    <td><span class="badge bg-light text-dark">{{ r.type }}</span></td>
+                                    <td><code>{{ r.value }}</code></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg"></i> Import Selected Domains</button>
+                </form>
+            </div>
+        </div>
+
+        {% elif azure_zones is defined %}
+        {# Phase 1: Zone list #}
+        <div class="card" style="max-width:640px;">
+            <div class="card-header"><i class="bi bi-list-ul"></i> {{ azure_zones|length }} DNS Zone{{ 's' if azure_zones|length != 1 }}</div>
+            <div class="card-body">
+                {% for zone in azure_zones %}
+                <form method="post" action="{{ url_for('domains.import_azure') }}" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="list_records">
+                    <input type="hidden" name="zone_name" value="{{ zone.name }}">
+                    <input type="hidden" name="resource_group" value="{{ zone.resource_group }}">
+                    <button type="submit" class="btn btn-outline-primary mb-2 me-2">
+                        <i class="bi bi-globe2"></i> {{ zone.name }}
+                        <span class="badge bg-secondary ms-1">{{ zone.number_of_record_sets }} records</span>
+                    </button>
+                </form>
+                {% endfor %}
+                {% if not azure_zones %}
+                <p class="text-muted mb-0">No zones found.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% else %}
+        {# Initial state #}
+        <div class="card" style="max-width:640px;">
+            <div class="card-body">
+                <p class="text-muted mb-3">Connect to Azure DNS to import zones and records. Domains will be auto-checked for SSL, DNS, and WHOIS.</p>
+                <form method="post" action="{{ url_for('domains.import_azure') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="list_zones">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-cloud-download"></i> List Azure DNS Zones</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── Zone Transfer Tab ── #}
+    <div class="tab-pane fade {{ 'show active' if active_tab|default('') == 'zone-transfer' }}" id="zone-transfer" role="tabpanel">
+
+        {% if zt_records is defined %}
+        {# Phase 2: AXFR results #}
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-check2-square"></i> {{ zt_records|length }} record{{ 's' if zt_records|length != 1 }}
+                from <strong>{{ zt_zone }}</strong> ({{ zt_server }})
+            </div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('domains.import_zone_transfer') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="add_selected">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-3">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;">
+                                        <input type="checkbox" id="selectAllZt"
+                                               onclick="document.querySelectorAll('#zone-transfer input[name=selected]').forEach(c=>c.checked=this.checked)">
+                                    </th>
+                                    <th>Hostname</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in zt_records %}
+                                <tr>
+                                    <td><input type="checkbox" name="selected" value="{{ r.hostname }}"></td>
+                                    <td class="fw-semibold">{{ r.hostname }}</td>
+                                    <td><span class="badge bg-light text-dark">{{ r.type }}</span></td>
+                                    <td><code>{{ r.value }}</code></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg"></i> Import Selected Domains</button>
+                </form>
+            </div>
+        </div>
+
+        {% else %}
+        {# Phase 1: Enter server + zone #}
+        <div class="card" style="max-width:640px;">
+            <div class="card-body">
+                <p class="text-muted mb-3">Connect to a DNS server and perform an AXFR zone transfer. The server must allow zone transfers from this host.</p>
+                <form method="post" action="{{ url_for('domains.import_zone_transfer') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="transfer">
+                    <div class="mb-3">
+                        <label class="form-label">DNS Server <span class="text-danger">*</span></label>
+                        <input type="text" name="server" class="form-control" placeholder="192.168.1.1 or ns1.example.com" value="{{ zt_server|default('') }}" required>
+                        <div class="form-text">IP address or hostname of the DNS server</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Zone Name <span class="text-danger">*</span></label>
+                        <input type="text" name="zone_name" class="form-control" placeholder="example.com" value="{{ zt_zone|default('') }}" required>
+                        <div class="form-text">The DNS zone to transfer</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">TSIG Key <small class="text-muted">(optional)</small></label>
+                        <input type="text" name="tsig_key" class="form-control" placeholder="keyname:base64secret">
+                        <div class="form-text">For authenticated zone transfers (format: keyname:base64secret)</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-repeat"></i> Transfer Zone</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

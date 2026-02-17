@@ -1,6 +1,6 @@
-"""Alerts route — list alerts with severity filtering."""
+"""Alerts route — list alerts with severity filtering and acknowledgment."""
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from web.services import get_registry, get_alert_engine
 from tracker.alert_engine import AlertLevel, AlertType
 
@@ -31,3 +31,20 @@ def list_alerts():
         summary=summary,
         filters={"level": level_filter, "type": type_filter, "vendor": vendor_filter},
     )
+
+
+@bp.route("/acknowledge", methods=["POST"])
+def acknowledge():
+    product_id = request.form.get("product_id", "")
+    alert_type = request.form.get("alert_type", "")
+    if not product_id or not alert_type:
+        flash("Invalid alert reference.", "danger")
+        return redirect(url_for("alerts.list_alerts"))
+
+    registry = get_registry()
+    engine = get_alert_engine(registry)
+    if engine.acknowledge_alert(product_id, alert_type):
+        flash("Alert acknowledged.", "success")
+    else:
+        flash("Alert not found.", "danger")
+    return redirect(url_for("alerts.list_alerts"))

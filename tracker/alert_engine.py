@@ -185,6 +185,19 @@ class AlertEngine:
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
+    def acknowledge_alert(self, product_id: str, alert_type: str) -> bool:
+        """Mark a specific alert as acknowledged."""
+        for alert in self._alerts:
+            if alert.product_id == product_id and alert.alert_type.value == alert_type:
+                alert.acknowledged = True
+                self.save_history()
+                return True
+        return False
+
+    def get_unacknowledged(self) -> list[Alert]:
+        """Get only unacknowledged alerts."""
+        return [a for a in self._alerts if not a.acknowledged]
+
     def save_history(self) -> None:
         """Persist alert history to file."""
         self._history_path.parent.mkdir(parents=True, exist_ok=True)

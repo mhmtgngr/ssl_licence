@@ -10,6 +10,7 @@
     <div class="card-body">
         <p class="text-muted mb-3">Enter a domain to track. DNS, SOA, hosting, and SSL information will be looked up automatically.</p>
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
                 <label class="form-label">Hostname <span class="text-danger">*</span></label>
                 <input type="text" name="hostname" class="form-control" placeholder="example.com or sub.example.com" required>

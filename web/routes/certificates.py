@@ -3,7 +3,13 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-from web.services import get_certificate_manager, get_certificate_monitor, get_cert_checks_store
+from web.services import (
+    get_certificate_manager,
+    get_certificate_monitor,
+    get_cert_checks_store,
+    get_chain_validator,
+    get_ocsp_checker,
+)
 
 bp = Blueprint("certificates", __name__)
 
@@ -72,3 +78,33 @@ def clear_history():
     store.clear()
     flash("Check history cleared.", "success")
     return redirect(url_for("certificates.check_history"))
+
+
+@bp.route("/chain-check", methods=["GET", "POST"])
+def chain_check():
+    """Validate certificate chain for a domain."""
+    result = None
+    domain = ""
+    if request.method == "POST":
+        domain = request.form.get("domain", "").strip()
+        if domain:
+            validator = get_chain_validator()
+            result = validator.validate(domain)
+        else:
+            flash("Please enter a domain.", "warning")
+    return render_template("certificates/chain_check.html", result=result, domain=domain)
+
+
+@bp.route("/ocsp-check", methods=["GET", "POST"])
+def ocsp_check():
+    """Check OCSP revocation status for a domain."""
+    result = None
+    domain = ""
+    if request.method == "POST":
+        domain = request.form.get("domain", "").strip()
+        if domain:
+            checker = get_ocsp_checker()
+            result = checker.check(domain)
+        else:
+            flash("Please enter a domain.", "warning")
+    return render_template("certificates/ocsp_check.html", result=result, domain=domain)

@@ -87,6 +87,30 @@ def get_acme_service():
     )
 
 
+def get_azure_dns_service():
+    from sslcert.azure_dns import AzureDnsService
+    from config.settings import AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP
+    return AzureDnsService(
+        subscription_id=AZURE_SUBSCRIPTION_ID,
+        resource_group=AZURE_RESOURCE_GROUP,
+    )
+
+
+def get_zone_transfer_service():
+    from sslcert.zone_transfer import ZoneTransferService
+    return ZoneTransferService()
+
+
+def get_chain_validator():
+    from sslcert.chain_validator import CertificateChainValidator
+    return CertificateChainValidator()
+
+
+def get_ocsp_checker():
+    from sslcert.ocsp_checker import OCSPChecker
+    return OCSPChecker()
+
+
 def get_cert_checks_store():
     """Return the CertCheckStore for persisting certificate check results."""
     return CertCheckStore(CERT_CHECKS_PATH)

@@ -9,10 +9,12 @@
     </h4>
     <div>
         <form method="post" action="{{ url_for('domains.refresh_domain', domain_id=domain.domain_id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-outline-primary"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
         </form>
         <a href="{{ url_for('domains.edit_domain', domain_id=domain.domain_id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Edit</a>
         <form method="post" action="{{ url_for('domains.delete_domain', domain_id=domain.domain_id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Delete {{ domain.hostname }}?')"><i class="bi bi-trash"></i> Delete</button>
         </form>
         <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
@@ -165,17 +167,20 @@
                         <tr><th>Auto-Renewal</th><td>
                             <span class="badge bg-{{ 'success' if domain.le_auto_renew else 'secondary' }}">{{ 'ON' if domain.le_auto_renew else 'OFF' }}</span>
                             <form method="post" action="{{ url_for('domains.toggle_auto_renew', domain_id=domain.domain_id) }}" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-outline-secondary ms-2">{{ 'Disable' if domain.le_auto_renew else 'Enable' }}</button>
                             </form>
                         </td></tr>
                     </tbody>
                 </table>
                 <form method="post" action="{{ url_for('domains.renew_letsencrypt', domain_id=domain.domain_id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-clockwise"></i> Renew Now</button>
                 </form>
                 {% else %}
                 <p class="text-muted mb-3">No Let's Encrypt certificate issued for this domain.</p>
                 <form method="post" action="{{ url_for('domains.issue_letsencrypt', domain_id=domain.domain_id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="row g-2 align-items-end">
                         <div class="col-auto">
                             <label class="form-label">Challenge</label>
