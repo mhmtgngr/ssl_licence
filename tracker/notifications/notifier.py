@@ -14,7 +14,7 @@ import logging
 import smtplib
 import urllib.request
 import urllib.error
-from datetime import datetime
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -44,7 +44,7 @@ class ConsoleNotifier:
             return
 
         print(f"\n{'='*70}")
-        print(f"  LICENCE & SUPPORT ALERTS — {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+        print(f"  LICENCE & SUPPORT ALERTS — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
         print(f"{'='*70}\n")
 
         for alert in alerts:
@@ -144,7 +144,7 @@ class EmailNotifier:
         return f"""
         <html><body>
         <h2>Licence & Support Alert Digest</h2>
-        <p>Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
         <table border='1' cellpadding='5' cellspacing='0'>
         <tr style='background:#f0f0f0'>
           <th>Level</th><th>Product</th><th>Vendor</th>
@@ -170,7 +170,7 @@ class WebhookNotifier:
             return False
 
         payload = {
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "total_alerts": len(alerts),
             "alerts": [a.to_dict() for a in alerts],
         }
@@ -259,7 +259,7 @@ class FileNotifier:
     def send(self, alerts: list[Alert]) -> None:
         """Append alerts to the log file."""
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         lines = [f"\n--- Alert run: {timestamp} ({len(alerts)} alerts) ---\n"]
         for a in alerts:

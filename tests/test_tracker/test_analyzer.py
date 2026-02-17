@@ -2,7 +2,7 @@
 
 import os
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from tracker.product import Product, ProductCategory, SupportStatus
 from tracker.registry import ProductRegistry
@@ -27,7 +27,7 @@ class TestLicenceAnalyzer(unittest.TestCase):
         self.registry.add(Product(
             name="Old Server", vendor="Microsoft", version="2012",
             category=ProductCategory.MICROSOFT,
-            licence_expiry=datetime.utcnow() - timedelta(days=30),
+            licence_expiry=datetime.now(timezone.utc) - timedelta(days=30),
         ))
         analyzer = LicenceAnalyzer(self.registry)
         recs = analyzer.get_recommendations()
@@ -37,7 +37,7 @@ class TestLicenceAnalyzer(unittest.TestCase):
         self.registry.add(Product(
             name="Legacy App", vendor="SomeVendor", version="1.0",
             category=ProductCategory.SOFTWARE_LICENCE,
-            end_of_life=datetime.utcnow() - timedelta(days=100),
+            end_of_life=datetime.now(timezone.utc) - timedelta(days=100),
         ))
         analyzer = LicenceAnalyzer(self.registry)
         recs = analyzer.get_recommendations()
@@ -47,8 +47,8 @@ class TestLicenceAnalyzer(unittest.TestCase):
         self.registry.add(Product(
             name="Critical Product", vendor="V", version="1",
             category=ProductCategory.SOFTWARE_LICENCE,
-            licence_expiry=datetime.utcnow() - timedelta(days=10),
-            end_of_life=datetime.utcnow() - timedelta(days=5),
+            licence_expiry=datetime.now(timezone.utc) - timedelta(days=10),
+            end_of_life=datetime.now(timezone.utc) - timedelta(days=5),
             environment="production",
         ))
         analyzer = LicenceAnalyzer(self.registry)
@@ -59,7 +59,7 @@ class TestLicenceAnalyzer(unittest.TestCase):
         self.registry.add(Product(
             name="Windows Server", vendor="Microsoft", version="2012 R2",
             category=ProductCategory.MICROSOFT,
-            extended_support_end=datetime.utcnow() - timedelta(days=100),
+            extended_support_end=datetime.now(timezone.utc) - timedelta(days=100),
         ))
         analyzer = LicenceAnalyzer(self.registry)
         plans = analyzer.upgrade_plan()
@@ -69,7 +69,7 @@ class TestLicenceAnalyzer(unittest.TestCase):
         self.registry.add(Product(
             name="Expensive Expired", vendor="V", version="1",
             category=ProductCategory.SOFTWARE_LICENCE,
-            licence_expiry=datetime.utcnow() - timedelta(days=30),
+            licence_expiry=datetime.now(timezone.utc) - timedelta(days=30),
             annual_cost=50000,
         ))
         analyzer = LicenceAnalyzer(self.registry)
@@ -80,7 +80,7 @@ class TestLicenceAnalyzer(unittest.TestCase):
         self.registry.add(Product(
             name="Test", vendor="V", version="1",
             category=ProductCategory.SOFTWARE_LICENCE,
-            licence_expiry=datetime.utcnow() + timedelta(days=10),
+            licence_expiry=datetime.now(timezone.utc) + timedelta(days=10),
         ))
         analyzer = LicenceAnalyzer(self.registry)
         report = analyzer.generate_full_report()
@@ -93,7 +93,7 @@ class TestLicenceAnalyzer(unittest.TestCase):
         p = Product(
             name="Inactive", vendor="V", version="1",
             category=ProductCategory.SOFTWARE_LICENCE,
-            licence_expiry=datetime.utcnow() - timedelta(days=30),
+            licence_expiry=datetime.now(timezone.utc) - timedelta(days=30),
             is_active=False,
         )
         self.registry.add(p)

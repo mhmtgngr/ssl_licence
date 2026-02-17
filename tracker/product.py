@@ -2,7 +2,7 @@
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -88,12 +88,12 @@ class Product:
 
     # State
     is_active: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def support_status(self) -> SupportStatus:
         """Determine current support lifecycle status."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if self.end_of_life and now >= self.end_of_life:
             return SupportStatus.END_OF_LIFE
@@ -115,11 +115,11 @@ class Product:
         """Days remaining until licence expires."""
         if not self.licence_expiry:
             return None
-        return (self.licence_expiry - datetime.utcnow()).days
+        return (self.licence_expiry - datetime.now(timezone.utc)).days
 
     def days_until_support_end(self) -> Optional[int]:
         """Days remaining until earliest support end date."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         dates = [
             d for d in [
                 self.mainstream_support_end,
@@ -136,7 +136,7 @@ class Product:
         """Check if the licence has expired."""
         if not self.licence_expiry:
             return False
-        return datetime.utcnow() > self.licence_expiry
+        return datetime.now(timezone.utc) > self.licence_expiry
 
     def to_dict(self) -> dict:
         """Serialize product to dictionary."""
@@ -204,6 +204,6 @@ class Product:
             notes=data.get("notes", ""),
             tags=data.get("tags", []),
             is_active=data.get("is_active", True),
-            created_at=parse_dt(data.get("created_at")) or datetime.utcnow(),
-            updated_at=parse_dt(data.get("updated_at")) or datetime.utcnow(),
+            created_at=parse_dt(data.get("created_at")) or datetime.now(timezone.utc),
+            updated_at=parse_dt(data.get("updated_at")) or datetime.now(timezone.utc),
         )

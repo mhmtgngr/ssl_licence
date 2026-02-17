@@ -7,7 +7,7 @@ and sorted result views.
 
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from tracker.product import Product, ProductCategory, SupportStatus
@@ -146,7 +146,7 @@ class SearchEngine:
 
     def expiry_timeline(self, months_ahead: int = 12) -> list[dict]:
         """Build a timeline of upcoming expiries/end-of-support dates."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         events = []
 
         for p in self._registry.list_all():

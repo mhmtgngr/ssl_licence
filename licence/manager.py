@@ -1,7 +1,7 @@
 """Licence lifecycle management and storage."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -72,7 +72,7 @@ class LicenceManager:
             elif record.get("expires_at"):
                 expires = datetime.fromisoformat(record["expires_at"])
                 result.expires_at = expires
-                if expires < datetime.utcnow():
+                if expires < datetime.now(timezone.utc):
                     result.is_valid = False
                     result.is_expired = True
                     result.error = "Licence has expired"
@@ -91,14 +91,14 @@ class LicenceManager:
         if licence_key not in self._licences:
             return False
         self._licences[licence_key]["revoked"] = True
-        self._licences[licence_key]["revoked_at"] = datetime.utcnow().isoformat()
+        self._licences[licence_key]["revoked_at"] = datetime.now(timezone.utc).isoformat()
         self._save()
         return True
 
     def list_active(self) -> list[dict]:
         """Return all active (non-revoked, non-expired) licences."""
         active = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         for key, record in self._licences.items():
             if record.get("revoked"):
                 continue

@@ -1,7 +1,7 @@
 """Tests for the alert engine."""
 
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from tracker.product import Product, ProductCategory
 from tracker.registry import ProductRegistry
@@ -30,7 +30,7 @@ class TestAlertEngine(unittest.TestCase):
             pass
 
     def _add_product(self, days_to_expiry=None, days_to_support_end=None, **kw):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         defaults = dict(
             name="Test Product",
             vendor="TestVendor",

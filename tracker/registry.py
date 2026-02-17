@@ -1,7 +1,7 @@
 """Product registry — persistent storage and CRUD for tracked products."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -21,8 +21,8 @@ class ProductRegistry:
 
     def add(self, product: Product) -> Product:
         """Add a product to the registry."""
-        product.created_at = datetime.utcnow()
-        product.updated_at = datetime.utcnow()
+        product.created_at = datetime.now(timezone.utc)
+        product.updated_at = datetime.now(timezone.utc)
         self._products[product.product_id] = product
         self._save()
         return product
@@ -35,7 +35,7 @@ class ProductRegistry:
         for key, value in fields.items():
             if hasattr(product, key):
                 setattr(product, key, value)
-        product.updated_at = datetime.utcnow()
+        product.updated_at = datetime.now(timezone.utc)
         self._save()
         return product
 

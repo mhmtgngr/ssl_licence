@@ -1,7 +1,7 @@
 """Tests for the Product data model."""
 
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from tracker.product import (
     Product,
@@ -32,33 +32,33 @@ class TestProduct(unittest.TestCase):
 
     def test_support_status_active(self):
         p = self._make_product(
-            mainstream_support_end=datetime.utcnow() + timedelta(days=365),
+            mainstream_support_end=datetime.now(timezone.utc) + timedelta(days=365),
         )
         self.assertEqual(p.support_status(), SupportStatus.ACTIVE)
 
     def test_support_status_extended(self):
         p = self._make_product(
-            mainstream_support_end=datetime.utcnow() - timedelta(days=30),
-            extended_support_end=datetime.utcnow() + timedelta(days=365),
+            mainstream_support_end=datetime.now(timezone.utc) - timedelta(days=30),
+            extended_support_end=datetime.now(timezone.utc) + timedelta(days=365),
         )
         self.assertEqual(p.support_status(), SupportStatus.EXTENDED)
 
     def test_support_status_end_of_support(self):
         p = self._make_product(
-            mainstream_support_end=datetime.utcnow() - timedelta(days=30),
-            extended_support_end=datetime.utcnow() - timedelta(days=1),
+            mainstream_support_end=datetime.now(timezone.utc) - timedelta(days=30),
+            extended_support_end=datetime.now(timezone.utc) - timedelta(days=1),
         )
         self.assertEqual(p.support_status(), SupportStatus.END_OF_SUPPORT)
 
     def test_support_status_end_of_life(self):
         p = self._make_product(
-            end_of_life=datetime.utcnow() - timedelta(days=100),
+            end_of_life=datetime.now(timezone.utc) - timedelta(days=100),
         )
         self.assertEqual(p.support_status(), SupportStatus.END_OF_LIFE)
 
     def test_days_until_licence_expiry(self):
         p = self._make_product(
-            licence_expiry=datetime.utcnow() + timedelta(days=30),
+            licence_expiry=datetime.now(timezone.utc) + timedelta(days=30),
         )
         days = p.days_until_licence_expiry()
         self.assertIsNotNone(days)
@@ -70,20 +70,20 @@ class TestProduct(unittest.TestCase):
 
     def test_is_licence_expired(self):
         p = self._make_product(
-            licence_expiry=datetime.utcnow() - timedelta(days=5),
+            licence_expiry=datetime.now(timezone.utc) - timedelta(days=5),
         )
         self.assertTrue(p.is_licence_expired())
 
     def test_is_licence_not_expired(self):
         p = self._make_product(
-            licence_expiry=datetime.utcnow() + timedelta(days=100),
+            licence_expiry=datetime.now(timezone.utc) + timedelta(days=100),
         )
         self.assertFalse(p.is_licence_expired())
 
     def test_serialization_roundtrip(self):
         p = self._make_product(
-            licence_expiry=datetime.utcnow() + timedelta(days=90),
-            mainstream_support_end=datetime.utcnow() + timedelta(days=365),
+            licence_expiry=datetime.now(timezone.utc) + timedelta(days=90),
+            mainstream_support_end=datetime.now(timezone.utc) + timedelta(days=365),
             annual_cost=5000.0,
             tags=["critical", "production"],
         )

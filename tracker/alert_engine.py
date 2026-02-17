@@ -7,7 +7,7 @@ Supports licence expiry, end-of-support, and end-of-life alerts.
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -56,7 +56,7 @@ class Alert:
     days_remaining: int
     target_date: datetime
     message: str
-    generated_at: datetime = field(default_factory=datetime.utcnow)
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     acknowledged: bool = False
 
     def to_dict(self) -> dict:
@@ -182,7 +182,7 @@ class AlertEngine:
             "by_level": by_level,
             "by_type": by_type,
             "critical_items": upcoming_critical,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def save_history(self) -> None:
@@ -194,7 +194,7 @@ class AlertEngine:
     def _evaluate_product(self, product: Product) -> list[Alert]:
         """Generate alerts for a single product based on all date fields."""
         alerts = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Check licence expiry
         if product.licence_expiry:

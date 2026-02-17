@@ -6,7 +6,7 @@ import secrets
 import string
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 
@@ -65,7 +65,7 @@ class LicenceGenerator:
                 f"Must be one of: {self.LICENCE_TYPES}"
             )
 
-        issued_at = datetime.utcnow()
+        issued_at = datetime.now(timezone.utc)
         expires_at = (
             issued_at + timedelta(days=valid_days) if valid_days else None
         )

@@ -127,7 +127,7 @@ class CertificateMonitor:
         not_after = datetime.datetime.strptime(
             cert["notAfter"], "%b %d %H:%M:%S %Y %Z"
         )
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         days_remaining = (not_after - now).days
 
         subject_parts = []
@@ -170,7 +170,7 @@ class CertificateMonitor:
         except ValueError:
             return None
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         days_remaining = (not_after - now).days
 
         return CertStatus(

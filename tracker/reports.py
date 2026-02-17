@@ -11,7 +11,7 @@ Generates JSON, CSV, and formatted text reports covering:
 import csv
 import io
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -28,7 +28,7 @@ class ReportGenerator:
     def dashboard_report(self) -> dict:
         """Full dashboard report combining registry summary and alerts."""
         return {
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "registry": self._registry.summary(),
             "alerts": self._alerts.get_dashboard_summary(),
         }
@@ -41,7 +41,7 @@ class ReportGenerator:
         already_eos = self._registry.already_end_of_support()
 
         return {
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "days_ahead": days_ahead,
             "licence_expiring": [p.to_dict() for p in licence_expiring],
             "support_ending": [p.to_dict() for p in support_ending],
@@ -122,7 +122,7 @@ class ReportGenerator:
         )
 
         return {
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "total_issues": len(issues),
             "by_severity": {
                 "critical": sum(1 for i in issues if i["severity"] == "critical"),
@@ -156,7 +156,7 @@ class ReportGenerator:
             by_vendor[p.vendor]["cost"] += p.annual_cost
 
         return {
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "total_annual_cost": total,
             "cost_on_expired_licences": expired_cost,
             "cost_on_eos_products": eos_cost,
@@ -193,7 +193,7 @@ class ReportGenerator:
         lines = [
             "=" * 60,
             "  PRODUCT LICENCE & SUPPORT TRACKING DASHBOARD",
-            f"  Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            f"  Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
             "=" * 60,
             "",
             f"  Total Products:     {summary['total_products']}",

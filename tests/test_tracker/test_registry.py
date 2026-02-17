@@ -2,7 +2,7 @@
 
 import os
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from tracker.product import Product, ProductCategory, SupportStatus
 from tracker.registry import ProductRegistry
@@ -65,7 +65,7 @@ class TestProductRegistry(unittest.TestCase):
         self.assertEqual(len(results), 1)
 
     def test_expiring_within_days(self):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         self.registry.add(self._make(
             licence_expiry=now + timedelta(days=10), name="Soon"
         ))

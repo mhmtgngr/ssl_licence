@@ -13,7 +13,7 @@ using built-in knowledge of product lifecycle patterns.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from tracker.product import Product, ProductCategory, SupportStatus, LicenceType
@@ -179,7 +179,7 @@ class LicenceAnalyzer:
         high_risk = [r for r in risks if r.risk_score >= 7.0]
 
         return {
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "summary": {
                 "total_recommendations": len(recommendations),
                 "critical_recommendations": sum(
