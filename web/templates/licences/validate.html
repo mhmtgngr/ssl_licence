@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Validate Licence{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-check-circle"></i> Validate Licence</h4>
+    <a href="{{ url_for('licences.list_licences') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<div class="card mb-4" style="max-width: 600px;">
+    <div class="card-body">
+        <form method="post">
+            <div class="input-group">
+                <input type="text" name="licence_key" class="form-control" placeholder="Enter licence key..." value="{{ key }}" required>
+                <button type="submit" class="btn btn-primary">Validate</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if result is not none %}
+<div class="card" style="max-width: 600px;">
+    <div class="card-header d-flex align-items-center gap-2">
+        {% if result.is_valid %}
+        <span class="badge bg-success">VALID</span>
+        {% else %}
+        <span class="badge bg-danger">INVALID</span>
+        {% endif %}
+        <span>Validation Result</span>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm mb-0">
+            <tr><th style="width:120px">Key</th><td><code>{{ key }}</code></td></tr>
+            <tr><th>Valid</th><td>{{ result.is_valid }}</td></tr>
+            {% if result.licence_type %}<tr><th>Type</th><td>{{ result.licence_type }}</td></tr>{% endif %}
+            {% if result.expires_at %}<tr><th>Expires At</th><td>{{ result.expires_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>{% endif %}
+            {% if result.is_expired %}<tr><th>Expired</th><td><span class="text-danger fw-semibold">Yes</span></td></tr>{% endif %}
+            {% if result.error %}<tr><th>Error</th><td class="text-danger">{{ result.error }}</td></tr>{% endif %}
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

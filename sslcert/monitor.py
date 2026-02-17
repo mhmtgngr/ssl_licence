@@ -123,10 +123,10 @@ class CertificateMonitor:
         """Parse a peer certificate dict from ssl.getpeercert()."""
         not_before = datetime.datetime.strptime(
             cert["notBefore"], "%b %d %H:%M:%S %Y %Z"
-        )
+        ).replace(tzinfo=datetime.timezone.utc)
         not_after = datetime.datetime.strptime(
             cert["notAfter"], "%b %d %H:%M:%S %Y %Z"
-        )
+        ).replace(tzinfo=datetime.timezone.utc)
         now = datetime.datetime.now(datetime.timezone.utc)
         days_remaining = (not_after - now).days
 

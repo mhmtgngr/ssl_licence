@@ -1,0 +1,110 @@
+/* ── Global ── */
+body {
+    background-color: #f0f2f5;
+}
+
+main.container-fluid {
+    max-width: 1400px;
+}
+
+/* ── Cards ── */
+.card {
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+    border-radius: 0.5rem;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+}
+
+.card-stat {
+    min-height: 120px;
+    border: none;
+}
+.card-stat h2 {
+    font-size: 2rem;
+    font-weight: 700;
+}
+.card-stat .card-title {
+    opacity: 0.85;
+    font-weight: 500;
+}
+.card-stat small {
+    opacity: 0.75;
+}
+
+/* ── Alert level badges ── */
+.badge-expired { background-color: #212529; }
+.badge-critical { background-color: #dc3545; }
+.badge-high { background-color: #fd7e14; }
+.badge-medium { background-color: #ffc107; color: #000; }
+.badge-low { background-color: #0dcaf0; color: #000; }
+.badge-info { background-color: #6c757d; }
+
+/* ── Support status badges ── */
+.badge-active { background-color: #198754; }
+.badge-mainstream_end { background-color: #0d6efd; }
+.badge-extended { background-color: #0dcaf0; color: #000; }
+.badge-end_of_support { background-color: #fd7e14; }
+.badge-end_of_life { background-color: #dc3545; }
+.badge-unknown { background-color: #6c757d; }
+
+/* ── Risk scores ── */
+.risk-high { color: #dc3545; font-weight: bold; }
+.risk-medium { color: #fd7e14; font-weight: bold; }
+.risk-low { color: #198754; font-weight: bold; }
+
+/* ── Filter bar ── */
+.filter-bar {
+    background: #fff;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Empty states ── */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+.empty-state i {
+    font-size: 3rem;
+    color: #adb5bd;
+    display: block;
+    margin-bottom: 1rem;
+}
+.empty-state p {
+    color: #6c757d;
+    font-size: 1rem;
+    margin-bottom: 0;
+}
+
+/* ── Nav pills refinement ── */
+.nav-pills .nav-link {
+    border-radius: 0.375rem;
+    font-weight: 500;
+    padding: 0.4rem 1rem;
+}
+
+/* ── Tables ── */
+.table th {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6c757d;
+    border-bottom-width: 2px;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* ── Footer ── */
+footer {
+    color: #adb5bd;
+    font-size: 0.8rem;
+}

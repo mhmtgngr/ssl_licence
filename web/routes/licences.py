@@ -1,0 +1,64 @@
+"""Licence routes — list, issue, validate, revoke."""
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from web.services import get_licence_manager
+
+bp = Blueprint("licences", __name__)
+
+
+@bp.route("/")
+def list_licences():
+    mgr = get_licence_manager()
+    licences = mgr.list_all()
+    active_count = len(mgr.list_active())
+    return render_template(
+        "licences/list.html",
+        licences=licences,
+        active_count=active_count,
+    )
+
+
+@bp.route("/issue", methods=["GET", "POST"])
+def issue():
+    if request.method == "POST":
+        mgr = get_licence_manager()
+        valid_days = request.form.get("valid_days")
+        valid_days = int(valid_days) if valid_days else None
+        features = [f.strip() for f in request.form.get("features", "").split(",") if f.strip()]
+
+        try:
+            licence = mgr.issue(
+                licence_type=request.form["licence_type"],
+                issued_to=request.form["issued_to"],
+                valid_days=valid_days,
+                features=features or None,
+                max_users=int(request.form.get("max_users", 1)),
+            )
+            flash(f"Licence issued: {licence.key}", "success")
+        except ValueError as e:
+            flash(f"Error: {e}", "danger")
+
+        return redirect(url_for("licences.list_licences"))
+    return render_template("licences/issue.html")
+
+
+@bp.route("/validate", methods=["GET", "POST"])
+def validate():
+    result = None
+    key = ""
+    if request.method == "POST":
+        key = request.form["licence_key"]
+        mgr = get_licence_manager()
+        result = mgr.validate(key)
+    return render_template("licences/validate.html", result=result, key=key)
+
+
+@bp.route("/revoke", methods=["POST"])
+def revoke():
+    key = request.form["licence_key"]
+    mgr = get_licence_manager()
+    if mgr.revoke(key):
+        flash(f"Licence revoked: {key}", "success")
+    else:
+        flash(f"Licence not found: {key}", "danger")
+    return redirect(url_for("licences.list_licences"))

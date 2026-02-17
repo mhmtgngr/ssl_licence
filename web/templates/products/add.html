@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Add Product{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-plus-lg"></i> Add Product</h4>
+    <a href="{{ url_for('products.list_products') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Name <span class="text-danger">*</span></label>
+                <input type="text" name="name" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Vendor <span class="text-danger">*</span></label>
+                <input type="text" name="vendor" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Version <span class="text-danger">*</span></label>
+                <input type="text" name="version" class="form-control" required>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Category <span class="text-danger">*</span></label>
+                <select name="category" class="form-select" required>
+                    {% for cat in ProductCategory %}
+                    <option value="{{ cat.value }}">{{ cat.value|replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Licence Type</label>
+                <select name="licence_type" class="form-select">
+                    {% for lt in LicenceType %}
+                    <option value="{{ lt.value }}">{{ lt.value|replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Environment</label>
+                <select name="environment" class="form-select">
+                    <option value="production">Production</option>
+                    <option value="staging">Staging</option>
+                    <option value="dev">Dev</option>
+                    <option value="dr">DR</option>
+                </select>
+            </div>
+
+            <div class="col-12"><hr class="my-1"></div>
+
+            <div class="col-md-3">
+                <label class="form-label">Licence Expiry</label>
+                <input type="date" name="licence_expiry" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Mainstream Support End</label>
+                <input type="date" name="mainstream_support_end" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Extended Support End</label>
+                <input type="date" name="extended_support_end" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End of Life</label>
+                <input type="date" name="end_of_life" class="form-control">
+            </div>
+
+            <div class="col-12"><hr class="my-1"></div>
+
+            <div class="col-md-3">
+                <label class="form-label">Annual Cost</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" name="annual_cost" class="form-control" step="0.01" value="0">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Licence Key</label>
+                <input type="text" name="licence_key" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Licence Quantity</label>
+                <input type="number" name="licence_quantity" class="form-control" value="1" min="1">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Owner</label>
+                <input type="text" name="owner" class="form-control">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Department</label>
+                <input type="text" name="department" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Tags (comma-separated)</label>
+                <input type="text" name="tags" class="form-control" placeholder="critical, production">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Notes</label>
+                <input type="text" name="notes" class="form-control">
+            </div>
+
+            <div class="col-12 pt-2">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Add Product</button>
+                <a href="{{ url_for('products.list_products') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

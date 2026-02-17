@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-file-earmark-bar-graph"></i> Reports</h4>
+
+<ul class="nav nav-pills mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if report_type == 'expiry' %}active{% endif %}" href="?type=expiry&days={{ days }}">Expiry</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if report_type == 'compliance' %}active{% endif %}" href="?type=compliance">Compliance</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if report_type == 'cost' %}active{% endif %}" href="?type=cost">Cost</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if report_type == 'dashboard' %}active{% endif %}" href="?type=dashboard">Dashboard</a>
+    </li>
+</ul>
+
+{% if report_type == 'expiry' %}
+<form method="get" class="filter-bar mb-4">
+    <input type="hidden" name="type" value="expiry">
+    <div class="row g-2 align-items-center">
+        <div class="col-auto">
+            <label class="col-form-label">Days ahead:</label>
+        </div>
+        <div class="col-auto">
+            <input type="number" name="days" class="form-control form-control-sm" value="{{ days }}" min="1" style="width:100px;">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Update</button>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-warning">
+            <div class="card-body"><h6>Licences Expiring</h6><h2>{{ report.totals.licence_expiring }}</h2></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-primary">
+            <div class="card-body"><h6>Support Ending</h6><h2>{{ report.totals.support_ending }}</h2></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-danger">
+            <div class="card-body"><h6>Already Expired</h6><h2>{{ report.totals.already_expired }}</h2></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-dark">
+            <div class="card-body"><h6>End of Support</h6><h2>{{ report.totals.already_eos }}</h2></div>
+        </div>
+    </div>
+</div>
+
+{% if report.licence_expiring %}
+<div class="card mb-3">
+    <div class="card-header">Licences Expiring (next {{ days }} days)</div>
+    <div class="card-body table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Name</th><th>Vendor</th><th>Version</th><th>Days Left</th><th>Expiry</th></tr></thead>
+            <tbody>
+                {% for p in report.licence_expiring %}
+                <tr><td>{{ p.name }}</td><td>{{ p.vendor }}</td><td>{{ p.version }}</td><td>{{ p.days_until_licence_expiry }}</td><td>{{ p.licence_expiry[:10] if p.licence_expiry else '-' }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if report.already_expired_licences %}
+<div class="card mb-3">
+    <div class="card-header text-bg-danger">Already Expired Licences</div>
+    <div class="card-body table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Name</th><th>Vendor</th><th>Version</th><th>Expired</th></tr></thead>
+            <tbody>
+                {% for p in report.already_expired_licences %}
+                <tr><td>{{ p.name }}</td><td>{{ p.vendor }}</td><td>{{ p.version }}</td><td>{{ p.licence_expiry[:10] if p.licence_expiry else '-' }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% elif report_type == 'compliance' %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card card-stat text-bg-danger"><div class="card-body"><h6>Critical</h6><h2>{{ report.by_severity.critical }}</h2></div></div></div>
+    <div class="col-md-3"><div class="card card-stat text-bg-warning"><div class="card-body"><h6>High</h6><h2>{{ report.by_severity.high }}</h2></div></div></div>
+    <div class="col-md-3"><div class="card card-stat text-bg-primary"><div class="card-body"><h6>Medium</h6><h2>{{ report.by_severity.medium }}</h2></div></div></div>
+    <div class="col-md-3"><div class="card card-stat text-bg-secondary"><div class="card-body"><h6>Low</h6><h2>{{ report.by_severity.low }}</h2></div></div></div>
+</div>
+
+{% if report.issues %}
+<div class="card">
+    <div class="card-header">Compliance Issues ({{ report.total_issues }})</div>
+    <div class="card-body table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Severity</th><th>Product</th><th>Vendor</th><th>Issue</th><th>Detail</th></tr></thead>
+            <tbody>
+                {% for i in report.issues %}
+                <tr>
+                    <td><span class="badge bg-{{ 'danger' if i.severity == 'critical' else 'warning' if i.severity == 'high' else 'primary' if i.severity == 'medium' else 'secondary' }}">{{ i.severity|upper }}</span></td>
+                    <td>{{ i.name }}</td>
+                    <td>{{ i.vendor }}</td>
+                    <td>{{ i.issue|replace('_', ' ')|title }}</td>
+                    <td><small>{{ i.detail }}</small></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-check-circle"></i>
+            <p>No compliance issues found.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% elif report_type == 'cost' %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="card card-stat text-bg-primary"><div class="card-body"><h6>Total Annual Cost</h6><h2>${{ "{:,.0f}".format(report.total_annual_cost) }}</h2></div></div></div>
+    <div class="col-md-4"><div class="card card-stat text-bg-danger"><div class="card-body"><h6>Cost on Expired</h6><h2>${{ "{:,.0f}".format(report.cost_on_expired_licences) }}</h2></div></div></div>
+    <div class="col-md-4"><div class="card card-stat text-bg-success"><div class="card-body"><h6>Potential Savings</h6><h2>${{ "{:,.0f}".format(report.potential_savings) }}</h2></div></div></div>
+</div>
+
+{% if report.by_vendor %}
+<div class="card">
+    <div class="card-header">Cost by Vendor</div>
+    <div class="card-body table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Vendor</th><th>Products</th><th>Annual Cost</th></tr></thead>
+            <tbody>
+                {% for vendor, data in report.by_vendor.items() %}
+                <tr><td>{{ vendor }}</td><td>{{ data.count }}</td><td>${{ "{:,.0f}".format(data.cost) }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% elif report_type == 'dashboard' %}
+<div class="card">
+    <div class="card-header">Dashboard Report</div>
+    <div class="card-body">
+        <pre class="mb-0" style="max-height:500px; overflow:auto;">{{ report|tojson(indent=2) }}</pre>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

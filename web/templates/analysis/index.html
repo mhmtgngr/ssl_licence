@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}AI Analysis{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-robot"></i> AI Analysis</h4>
+
+<ul class="nav nav-pills mb-4">
+    <li class="nav-item"><a class="nav-link {% if section == 'recommendations' %}active{% endif %}" href="?section=recommendations">Recommendations</a></li>
+    <li class="nav-item"><a class="nav-link {% if section == 'risk' %}active{% endif %}" href="?section=risk">Risk Assessment</a></li>
+    <li class="nav-item"><a class="nav-link {% if section == 'cost' %}active{% endif %}" href="?section=cost">Cost Optimization</a></li>
+    <li class="nav-item"><a class="nav-link {% if section == 'upgrade' %}active{% endif %}" href="?section=upgrade">Upgrade Plans</a></li>
+</ul>
+
+{% if section == 'recommendations' %}
+{% if recommendations %}
+{% for rec in recommendations %}
+<div class="card mb-3 border-start border-{{ 'danger' if rec.priority == 'critical' else 'warning' if rec.priority == 'high' else 'info' if rec.priority == 'medium' else 'secondary' }} border-3">
+    <div class="card-header d-flex align-items-center gap-2">
+        <span class="badge bg-{{ 'danger' if rec.priority == 'critical' else 'warning' if rec.priority == 'high' else 'info' if rec.priority == 'medium' else 'secondary' }}">{{ rec.priority|upper }}</span>
+        <span class="badge bg-dark">{{ rec.category }}</span>
+        <span class="fw-semibold">{{ rec.title }}</span>
+    </div>
+    <div class="card-body">
+        <p><strong>Product:</strong> {{ rec.product_name }}</p>
+        <p>{{ rec.description }}</p>
+        <p class="mb-0"><strong>Action:</strong> {{ rec.suggested_action }}</p>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-check-circle"></i>
+            <p>No recommendations at this time. Everything looks good.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% elif section == 'risk' %}
+{% if risk_assessments %}
+<div class="card">
+    <div class="card-body table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Product</th><th>Risk Score</th><th>Risk Factors</th><th>Mitigation</th></tr></thead>
+            <tbody>
+                {% for r in risk_assessments %}
+                <tr>
+                    <td>{{ r.product_name }}</td>
+                    <td>
+                        <span class="{% if r.risk_score >= 7 %}risk-high{% elif r.risk_score >= 4 %}risk-medium{% else %}risk-low{% endif %}">
+                            {{ "%.1f"|format(r.risk_score) }}/10
+                        </span>
+                    </td>
+                    <td><ul class="mb-0 ps-3">{% for f in r.risk_factors %}<li><small>{{ f }}</small></li>{% endfor %}</ul></td>
+                    <td><ul class="mb-0 ps-3">{% for m in r.mitigation %}<li><small>{{ m }}</small></li>{% endfor %}</ul></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-shield-check"></i>
+            <p>No risk data available.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% elif section == 'cost' %}
+{% if cost_optimizations %}
+{% for rec in cost_optimizations %}
+<div class="card mb-3 border-start border-{{ 'danger' if rec.priority == 'critical' else 'warning' if rec.priority == 'high' else 'info' }} border-3">
+    <div class="card-header d-flex align-items-center gap-2">
+        <span class="badge bg-{{ 'danger' if rec.priority == 'critical' else 'warning' if rec.priority == 'high' else 'info' }}">{{ rec.priority|upper }}</span>
+        <span class="fw-semibold">{{ rec.title }}</span>
+    </div>
+    <div class="card-body">
+        <p>{{ rec.description }}</p>
+        <p class="mb-0"><strong>Action:</strong> {{ rec.suggested_action }}</p>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-piggy-bank"></i>
+            <p>No cost optimizations found. Spending looks efficient.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% elif section == 'upgrade' %}
+{% if upgrade_plans %}
+<div class="card">
+    <div class="card-body table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Product</th><th>Vendor</th><th>Current Version</th><th>Status</th><th>Urgency</th><th>Suggested Target</th></tr></thead>
+            <tbody>
+                {% for plan in upgrade_plans %}
+                <tr>
+                    <td>{{ plan.product_name }}</td>
+                    <td>{{ plan.vendor }}</td>
+                    <td>{{ plan.current_version }}</td>
+                    <td>{{ plan.current_status }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'danger' if plan.urgency_score >= 7 else 'warning' if plan.urgency_score >= 4 else 'info' }}">
+                            {{ "%.1f"|format(plan.urgency_score) }}
+                        </span>
+                    </td>
+                    <td>{{ plan.suggested_target or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-arrow-up-circle"></i>
+            <p>No upgrade plans needed. All products are current.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Check Certificates{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-globe"></i> Check Remote SSL Certificates</h4>
+    <a href="{{ url_for('certificates.list_certs') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to List</a>
+</div>
+
+<div class="card mb-4" style="max-width: 640px;">
+    <div class="card-body">
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label">Domains (one per line or comma-separated)</label>
+                <textarea name="domains" class="form-control" rows="4" placeholder="google.com&#10;github.com&#10;example.com">{{ domains_input }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Check</button>
+        </form>
+    </div>
+</div>
+
+{% if results %}
+<div class="card">
+    <div class="card-header">Results</div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Domain</th><th>Status</th><th>Issuer</th><th>Expiry</th><th>Days Remaining</th></tr></thead>
+                <tbody>
+                    {% for r in results %}
+                    <tr>
+                        <td class="fw-semibold">{{ r.domain }}</td>
+                        {% if r.status %}
+                        <td>
+                            {% if r.status.is_expired %}
+                            <span class="badge bg-danger">EXPIRED</span>
+                            {% elif r.status.days_remaining <= 30 %}
+                            <span class="badge bg-warning text-dark">WARNING</span>
+                            {% else %}
+                            <span class="badge bg-success">OK</span>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ r.status.issuer.split('organizationName=')[1].split(',')[0] if 'organizationName=' in r.status.issuer else r.status.issuer }}</small></td>
+                        <td>{{ r.status.not_after.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            {% if r.status.days_remaining <= 30 %}
+                            <span class="fw-semibold text-{{ 'danger' if r.status.is_expired else 'warning' }}">{{ r.status.days_remaining }}d</span>
+                            {% else %}
+                            <span class="text-success">{{ r.status.days_remaining }}d</span>
+                            {% endif %}
+                        </td>
+                        {% else %}
+                        <td><span class="badge bg-dark">FAIL</span></td>
+                        <td colspan="3"><small class="text-danger">{{ r.error }}</small></td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

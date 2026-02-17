@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-speedometer2"></i> Dashboard</h4>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-primary">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-box-seam"></i> Total Products</h6>
+                <h2>{{ summary.total_products }}</h2>
+                <small>{{ summary.active_products }} active</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-danger">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-bell"></i> Active Alerts</h6>
+                <h2>{{ alert_summary.total_alerts }}</h2>
+                <small>{{ alert_summary.by_level.get('critical', 0) + alert_summary.by_level.get('expired', 0) }} critical/expired</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-warning">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-clock-history"></i> Expiring (30 days)</h6>
+                <h2>{{ summary.expiring_30_days }}</h2>
+                <small>{{ summary.expired_licences }} already expired</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-success">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-currency-dollar"></i> Annual Cost</h6>
+                <h2>${{ "{:,.0f}".format(summary.total_annual_cost) }}</h2>
+                <small>{{ summary.by_vendor|length }} vendor(s)</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-bar-chart"></i> Alert Distribution</div>
+            <div class="card-body">
+                {% if alert_summary.by_level %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for level, count in alert_summary.by_level.items() %}
+                    <span class="badge badge-{{ level }} fs-6">
+                        {{ level|upper }}: {{ count }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-shield-check"></i>
+                    <p>No alerts</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-pie-chart"></i> By Status</div>
+            <div class="card-body">
+                {% if summary.by_status %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for status, count in summary.by_status.items() %}
+                    <span class="badge badge-{{ status }} fs-6">
+                        {{ status|replace('_', ' ')|title }}: {{ count }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-box-seam"></i>
+                    <p>No products</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-exclamation-triangle"></i> Critical & Expired Alerts</div>
+    <div class="card-body">
+        {% if critical_alerts %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Level</th>
+                        <th>Product</th>
+                        <th>Vendor</th>
+                        <th>Type</th>
+                        <th>Days</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in critical_alerts[:10] %}
+                    <tr>
+                        <td><span class="badge badge-{{ alert.alert_level.value }}">{{ alert.alert_level.value|upper }}</span></td>
+                        <td>{{ alert.product_name }}</td>
+                        <td>{{ alert.vendor }}</td>
+                        <td>{{ alert.alert_type.value|replace('_', ' ')|title }}</td>
+                        <td>{{ alert.days_remaining }}</td>
+                        <td>{{ alert.target_date.strftime('%Y-%m-%d') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-shield-check"></i>
+            <p>No critical alerts</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
