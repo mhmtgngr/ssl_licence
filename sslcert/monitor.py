@@ -134,12 +134,18 @@ class CertificateMonitor:
             CertStatus with certificate details, or None on failure.
         """
         context = _ssl.create_default_context()
+        # Set default socket timeout so getaddrinfo (DNS) also respects it;
+        # create_connection's timeout only covers the TCP connect phase.
+        prev_timeout = socket.getdefaulttimeout()
         try:
+            socket.setdefaulttimeout(timeout)
             with socket.create_connection((domain, port), timeout=timeout) as sock:
                 with context.wrap_socket(sock, server_hostname=domain) as tls:
                     cert = tls.getpeercert()
-        except (socket.error, _ssl.SSLError, OSError):
+        except (socket.error, _ssl.SSLError, OSError, socket.timeout):
             return None
+        finally:
+            socket.setdefaulttimeout(prev_timeout)
 
         return self._parse_peer_cert(domain, cert)
 
