@@ -195,7 +195,7 @@ class AzureDnsService:
 
     def create_txt_record(
         self, zone_name: str, record_name: str, value: str,
-        resource_group: str = "", ttl: int = 60,
+        resource_group: str = "", ttl: int = 60, subscription_id: str = "",
     ) -> bool:
         """Create or update a TXT record in an Azure DNS zone.
 
@@ -229,7 +229,8 @@ class AzureDnsService:
                 client_id=self.client_id,
                 client_secret=self.client_secret,
             )
-            client = DnsManagementClient(credential, self.subscription_id)
+            sub_id = subscription_id or self.subscription_id
+            client = DnsManagementClient(credential, sub_id)
             client.record_sets.create_or_update(
                 rg, zone_name, record_name, "TXT",
                 RecordSet(ttl=ttl, txt_records=[TxtRecord(value=[value])]),
@@ -242,6 +243,7 @@ class AzureDnsService:
 
     def delete_txt_record(
         self, zone_name: str, record_name: str, resource_group: str = "",
+        subscription_id: str = "",
     ) -> bool:
         """Delete a TXT record from an Azure DNS zone.
 
@@ -269,7 +271,8 @@ class AzureDnsService:
                 client_id=self.client_id,
                 client_secret=self.client_secret,
             )
-            client = DnsManagementClient(credential, self.subscription_id)
+            sub_id = subscription_id or self.subscription_id
+            client = DnsManagementClient(credential, sub_id)
             client.record_sets.delete(rg, zone_name, record_name, "TXT")
             logger.info("Deleted TXT record %s.%s", record_name, zone_name)
             return True

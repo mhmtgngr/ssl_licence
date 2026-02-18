@@ -200,15 +200,15 @@ class AcmeService:
                 f"import sys; sys.path.insert(0, '{Path(__file__).resolve().parent.parent}')\n"
                 f"from sslcert.azure_dns import AzureDnsService\n"
                 f"svc = AzureDnsService(\n"
-                f"    subscription_id='{self.azure_dns.subscription_id}',\n"
-                f"    resource_group='{self.azure_dns.resource_group}',\n"
+                f"    subscription_id='{_sub_id}',\n"
+                f"    resource_group='{rg}',\n"
                 f"    tenant_id='{self.azure_dns.tenant_id}',\n"
                 f"    client_id='{self.azure_dns.client_id}',\n"
                 f"    client_secret='{self.azure_dns.client_secret}',\n"
                 f")\n"
                 f"import os\n"
                 f"token = os.environ.get('CERTBOT_VALIDATION', '')\n"
-                f"svc.create_txt_record('{zone_name}', '{record_name}', token, '{rg}')\n"
+                f"svc.create_txt_record('{zone_name}', '{record_name}', token, '{rg}', subscription_id='{_sub_id}')\n"
                 f"import time; time.sleep(30)  # wait for DNS propagation\n"
                 '"\n'
             )
@@ -220,13 +220,13 @@ class AcmeService:
                 f"import sys; sys.path.insert(0, '{Path(__file__).resolve().parent.parent}')\n"
                 f"from sslcert.azure_dns import AzureDnsService\n"
                 f"svc = AzureDnsService(\n"
-                f"    subscription_id='{self.azure_dns.subscription_id}',\n"
-                f"    resource_group='{self.azure_dns.resource_group}',\n"
+                f"    subscription_id='{_sub_id}',\n"
+                f"    resource_group='{rg}',\n"
                 f"    tenant_id='{self.azure_dns.tenant_id}',\n"
                 f"    client_id='{self.azure_dns.client_id}',\n"
                 f"    client_secret='{self.azure_dns.client_secret}',\n"
                 f")\n"
-                f"svc.delete_txt_record('{zone_name}', '{record_name}', '{rg}')\n"
+                f"svc.delete_txt_record('{zone_name}', '{record_name}', '{rg}', subscription_id='{_sub_id}')\n"
                 '"\n'
             )
             cleanup_script.write_text(azure_cleanup_content)
