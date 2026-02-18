@@ -1,9 +1,10 @@
 """Flask application factory for SSL Licence Dashboard."""
 
+import os
 import sys
 from pathlib import Path
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template, request
 from flask_wtf.csrf import CSRFProtect
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -20,7 +21,7 @@ def create_app():
         template_folder="templates",
         static_folder="static",
     )
-    app.config["SECRET_KEY"] = "dev-dashboard-key"
+    app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-dashboard-key")
     app.config["WTF_CSRF_TIME_LIMIT"] = 3600
 
     csrf.init_app(app)
@@ -33,6 +34,7 @@ def create_app():
     from web.routes.licences import bp as licences_bp
     from web.routes.certificates import bp as certificates_bp
     from web.routes.domains import bp as domains_bp
+    from web.routes.settings import bp as settings_bp
     from web.routes.api import bp as api_bp
 
     app.register_blueprint(dashboard_bp)
@@ -43,8 +45,21 @@ def create_app():
     app.register_blueprint(licences_bp, url_prefix="/licences")
     app.register_blueprint(certificates_bp, url_prefix="/certificates")
     app.register_blueprint(domains_bp, url_prefix="/domains")
+    app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(api_bp, url_prefix="/api/v1")
     csrf.exempt(api_bp)
+
+    @app.errorhandler(404)
+    def not_found(e):
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Not found"}), 404
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(500)
+    def server_error(e):
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Internal server error"}), 500
+        return render_template("errors/500.html"), 500
 
     @app.route("/health")
     def health_check():

@@ -13,9 +13,9 @@
             <button type="submit" class="btn btn-outline-primary"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
         </form>
         <a href="{{ url_for('domains.edit_domain', domain_id=domain.domain_id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Edit</a>
-        <form method="post" action="{{ url_for('domains.delete_domain', domain_id=domain.domain_id) }}" style="display:inline">
+        <form method="post" action="{{ url_for('domains.delete_domain', domain_id=domain.domain_id) }}" style="display:inline" data-confirm="Delete {{ domain.hostname }}?">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Delete {{ domain.hostname }}?')"><i class="bi bi-trash"></i> Delete</button>
+            <button type="submit" class="btn btn-outline-danger" aria-label="Delete {{ domain.hostname }}"><i class="bi bi-trash"></i> Delete</button>
         </form>
         <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
     </div>
@@ -179,7 +179,7 @@
                 </form>
                 {% else %}
                 <p class="text-muted mb-3">No Let's Encrypt certificate issued for this domain.</p>
-                <form method="post" action="{{ url_for('domains.issue_letsencrypt', domain_id=domain.domain_id) }}">
+                <form method="post" action="{{ url_for('domains.issue_letsencrypt', domain_id=domain.domain_id) }}" data-confirm="Issue Let's Encrypt certificate for {{ domain.hostname }}?">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="row g-2 align-items-end">
                         <div class="col-auto">
@@ -187,6 +187,7 @@
                             <select name="challenge_type" class="form-select form-select-sm">
                                 <option value="http">HTTP-01 (Standalone)</option>
                                 <option value="dns">DNS-01 (Manual)</option>
+                                <option value="dns-azure">DNS-01 (Azure DNS Auto)</option>
                             </select>
                         </div>
                         <div class="col-auto">
@@ -196,7 +197,7 @@
                             </div>
                         </div>
                         <div class="col-auto">
-                            <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Issue Let\\'s Encrypt certificate for {{ domain.hostname }}?\\nPort 80 must be available for HTTP challenge.')">
+                            <button type="submit" class="btn btn-sm btn-primary">
                                 <i class="bi bi-lock"></i> Issue Certificate
                             </button>
                         </div>

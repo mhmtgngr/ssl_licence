@@ -9,6 +9,8 @@ from web.services import (
     get_dns_service,
     get_certificate_monitor,
     get_acme_service,
+    get_azure_dns_service,
+    get_zone_transfer_service,
 )
 from tracker.domain import Domain, DomainStatus, DomainType
 
@@ -363,3 +365,156 @@ def toggle_auto_renew(domain_id):
     state = "enabled" if new_value else "disabled"
     flash(f"Auto-renewal {state} for {domain.hostname}.", "info")
     return redirect(url_for("domains.detail", domain_id=domain_id))
+
+
+# ── Domain Import (Azure DNS + Zone Transfer) ──────────────────────
+
+
+def _import_selected(selected: list[str], tag: str) -> int:
+    """Import selected hostnames as tracked domains with full checks."""
+    registry = get_domain_registry()
+    dns = get_dns_service()
+    monitor = get_certificate_monitor()
+    added = 0
+
+    for hostname in selected:
+        if registry.get_by_hostname(hostname):
+            continue
+        domain = Domain(hostname=hostname)
+        domain.auto_discovered = True
+        domain.tags = [tag]
+        domain.classify()
+        _update_domain_dns(domain, dns)
+        _update_domain_ssl(domain, monitor)
+        domain.last_checked = datetime.now(timezone.utc)
+        registry.add(domain)
+        added += 1
+
+    return added
+
+
+@bp.route("/import")
+def import_domains():
+    """Import page with tabs for Azure DNS and Zone Transfer."""
+    azure_dns = get_azure_dns_service()
+    return render_template(
+        "domains/import.html",
+        azure_configured=azure_dns.is_configured(),
+    )
+
+
+@bp.route("/import/azure", methods=["POST"])
+def import_azure():
+    """Import domains from Azure DNS zones."""
+    azure_dns = get_azure_dns_service()
+    if not azure_dns.is_configured():
+        flash("Azure DNS is not configured. Set AZURE_SUBSCRIPTION_ID and credentials.", "danger")
+        return redirect(url_for("domains.import_domains"))
+
+    action = request.form.get("action", "list_zones")
+
+    if action == "list_zones":
+        zones = azure_dns.list_zones()
+        if not zones:
+            flash("No Azure DNS zones found.", "info")
+        return render_template(
+            "domains/import.html",
+            azure_configured=True,
+            active_tab="azure",
+            azure_zones=zones,
+        )
+
+    elif action == "list_records":
+        zone_name = request.form.get("zone_name", "")
+        resource_group = request.form.get("resource_group", "")
+        if not zone_name:
+            flash("Please select a zone.", "danger")
+            return redirect(url_for("domains.import_domains"))
+
+        records = azure_dns.list_records(zone_name, resource_group)
+        seen = set()
+        unique_records = []
+        for r in records:
+            if r.hostname not in seen:
+                seen.add(r.hostname)
+                unique_records.append({"hostname": r.hostname, "type": r.record_type, "value": r.value})
+
+        return render_template(
+            "domains/import.html",
+            azure_configured=True,
+            active_tab="azure",
+            azure_records=unique_records,
+            zone_name=zone_name,
+            resource_group=resource_group,
+        )
+
+    elif action == "add_selected":
+        selected = request.form.getlist("selected")
+        if not selected:
+            flash("No domains selected.", "warning")
+            return redirect(url_for("domains.import_domains"))
+
+        added = _import_selected(selected, "azure-dns")
+        flash(f"Imported {added} domain(s) from Azure DNS.", "success")
+        return redirect(url_for("domains.list_domains"))
+
+    return redirect(url_for("domains.import_domains"))
+
+
+@bp.route("/import/zone-transfer", methods=["POST"])
+def import_zone_transfer():
+    """Import domains via DNS zone transfer (AXFR)."""
+    action = request.form.get("action", "transfer")
+
+    if action == "transfer":
+        server = request.form.get("server", "").strip()
+        zone_name = request.form.get("zone_name", "").strip().lower()
+        tsig_key = request.form.get("tsig_key", "").strip() or None
+
+        if not server or not zone_name:
+            flash("Server and zone name are required.", "danger")
+            return redirect(url_for("domains.import_domains"))
+
+        zt = get_zone_transfer_service()
+        records = zt.transfer_zone(server, zone_name, tsig_key=tsig_key)
+
+        if not records:
+            flash(
+                f"Zone transfer returned no records for {zone_name} from {server}. "
+                "Check that AXFR is allowed from this host.", "warning"
+            )
+            return render_template(
+                "domains/import.html",
+                azure_configured=get_azure_dns_service().is_configured(),
+                active_tab="zone-transfer",
+                zt_server=server,
+                zt_zone=zone_name,
+            )
+
+        seen = set()
+        unique_records = []
+        for r in records:
+            if r.hostname not in seen:
+                seen.add(r.hostname)
+                unique_records.append({"hostname": r.hostname, "type": r.record_type, "value": r.value})
+
+        return render_template(
+            "domains/import.html",
+            azure_configured=get_azure_dns_service().is_configured(),
+            active_tab="zone-transfer",
+            zt_records=unique_records,
+            zt_server=server,
+            zt_zone=zone_name,
+        )
+
+    elif action == "add_selected":
+        selected = request.form.getlist("selected")
+        if not selected:
+            flash("No domains selected.", "warning")
+            return redirect(url_for("domains.import_domains"))
+
+        added = _import_selected(selected, "zone-transfer")
+        flash(f"Imported {added} domain(s) via zone transfer.", "success")
+        return redirect(url_for("domains.list_domains"))
+
+    return redirect(url_for("domains.import_domains"))

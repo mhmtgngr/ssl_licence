@@ -1,14 +1,18 @@
 """Backend service initialization for the web dashboard."""
 
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-REGISTRY_PATH = str(PROJECT_ROOT / "data" / "products" / "registry.json")
-LICENCE_STORAGE = str(PROJECT_ROOT / "data" / "licences.json")
-CERT_CHECKS_PATH = PROJECT_ROOT / "data" / "cert_checks.json"
+_DATA_DIR = Path(os.environ.get("SSL_LICENCE_DATA_DIR", str(PROJECT_ROOT / "data")))
+
+REGISTRY_PATH = str(_DATA_DIR / "products" / "registry.json")
+SETTINGS_PATH = str(_DATA_DIR / "settings.json")
+LICENCE_STORAGE = str(_DATA_DIR / "licences.json")
+CERT_CHECKS_PATH = _DATA_DIR / "cert_checks.json"
 SSLCERT_BASE_DIR = str(PROJECT_ROOT / "sslcert")
-DOMAIN_REGISTRY_PATH = str(PROJECT_ROOT / "data" / "domains" / "registry.json")
-LETSENCRYPT_DIR = str(PROJECT_ROOT / "data" / "letsencrypt")
+DOMAIN_REGISTRY_PATH = str(_DATA_DIR / "domains" / "registry.json")
+LETSENCRYPT_DIR = str(_DATA_DIR / "letsencrypt")
 
 
 def get_registry():
@@ -20,9 +24,11 @@ def get_alert_engine(registry=None):
     from tracker.alert_engine import AlertEngine
     if registry is None:
         registry = get_registry()
+    domain_registry = get_domain_registry()
     engine = AlertEngine(
         registry,
-        history_path=str(PROJECT_ROOT / "data" / "alerts_history.json"),
+        history_path=str(_DATA_DIR / "alerts_history.json"),
+        domain_registry=domain_registry,
     )
     engine.evaluate_all()
     return engine
@@ -77,22 +83,39 @@ def get_dns_service():
     return DnsService()
 
 
+def get_settings_store():
+    from web.settings_store import SettingsStore
+    return SettingsStore(SETTINGS_PATH)
+
+
 def get_acme_service():
     from sslcert.acme_service import AcmeService
     from config.settings import ACME_EMAIL, LETSENCRYPT_DIR, CERTBOT_STAGING
+    store = get_settings_store()
+    acme = store.get_section("acme")
+    azure_dns = get_azure_dns_service()
     return AcmeService(
         letsencrypt_dir=str(LETSENCRYPT_DIR),
-        email=ACME_EMAIL,
-        staging=CERTBOT_STAGING,
+        email=acme.get("email") or ACME_EMAIL,
+        staging=acme.get("staging", CERTBOT_STAGING),
+        azure_dns_service=azure_dns if azure_dns.is_configured() else None,
     )
 
 
 def get_azure_dns_service():
     from sslcert.azure_dns import AzureDnsService
-    from config.settings import AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP
+    from config.settings import (
+        AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP,
+        AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+    )
+    store = get_settings_store()
+    azure = store.get_section("azure_dns")
     return AzureDnsService(
-        subscription_id=AZURE_SUBSCRIPTION_ID,
-        resource_group=AZURE_RESOURCE_GROUP,
+        subscription_id=azure.get("subscription_id") or AZURE_SUBSCRIPTION_ID,
+        resource_group=azure.get("resource_group") or AZURE_RESOURCE_GROUP,
+        tenant_id=azure.get("tenant_id") or AZURE_TENANT_ID,
+        client_id=azure.get("client_id") or AZURE_CLIENT_ID,
+        client_secret=azure.get("client_secret") or AZURE_CLIENT_SECRET,
     )
 
 

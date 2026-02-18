@@ -1,8 +1,10 @@
 """
-Alert engine — monitors products and generates alerts at configurable thresholds.
+Alert engine — monitors products and domains, generates alerts at configurable
+thresholds.
 
 Default thresholds: 6 months, 3 months, 1 month, 1 week, expired.
-Supports licence expiry, end-of-support, and end-of-life alerts.
+Supports licence expiry, end-of-support, end-of-life, SSL expiry, and
+domain registration expiry alerts.
 """
 
 import json
@@ -13,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from tracker.product import Product, SupportStatus
+from tracker.domain import Domain, DomainStatus
 
 
 class AlertLevel(str, Enum):
@@ -33,6 +36,8 @@ class AlertType(str, Enum):
     MAINSTREAM_SUPPORT_END = "mainstream_support_end"
     EXTENDED_SUPPORT_END = "extended_support_end"
     END_OF_LIFE = "end_of_life"
+    SSL_EXPIRY = "ssl_expiry"
+    DOMAIN_REGISTRATION_EXPIRY = "domain_registration_expiry"
 
 
 @dataclass
@@ -46,7 +51,7 @@ class AlertThreshold:
 
 @dataclass
 class Alert:
-    """A generated alert for a product."""
+    """A generated alert for a product or domain."""
 
     product_id: str
     product_name: str
@@ -56,6 +61,8 @@ class Alert:
     days_remaining: int
     target_date: datetime
     message: str
+    # "product" or "domain" — identifies which entity this alert belongs to
+    source_type: str = "product"
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     acknowledged: bool = False
 
@@ -69,6 +76,7 @@ class Alert:
             "days_remaining": self.days_remaining,
             "target_date": self.target_date.isoformat(),
             "message": self.message,
+            "source_type": self.source_type,
             "generated_at": self.generated_at.isoformat(),
             "acknowledged": self.acknowledged,
         }
@@ -105,8 +113,10 @@ class AlertEngine:
         registry,
         thresholds: Optional[list[AlertThreshold]] = None,
         history_path: str = "data/alerts_history.json",
+        domain_registry=None,
     ):
         self._registry = registry
+        self._domain_registry = domain_registry
         self._thresholds = sorted(
             thresholds or DEFAULT_THRESHOLDS,
             key=lambda t: t.days,
@@ -115,14 +125,28 @@ class AlertEngine:
         self._alerts: list[Alert] = []
 
     def evaluate_all(self) -> list[Alert]:
-        """Evaluate all products and generate alerts."""
+        """Evaluate all products and domains, generate alerts."""
         self._alerts = []
         for product in self._registry.list_all():
             if not product.is_active:
                 continue
             self._alerts.extend(self._evaluate_product(product))
+        if self._domain_registry:
+            self._alerts.extend(self.evaluate_domains())
         self._alerts.sort(key=lambda a: a.days_remaining)
         return self._alerts
+
+    def evaluate_domains(self) -> list[Alert]:
+        """Evaluate all domains for SSL and registration expiry alerts."""
+        if not self._domain_registry:
+            return []
+        alerts: list[Alert] = []
+        now = datetime.now(timezone.utc)
+        for domain in self._domain_registry.list_all():
+            if domain.status == DomainStatus.INACTIVE:
+                continue
+            alerts.extend(self._evaluate_domain(domain, now))
+        return alerts
 
     def evaluate_product(self, product_id: str) -> list[Alert]:
         """Evaluate a single product."""
@@ -297,6 +321,84 @@ class AlertEngine:
                 target_date=target_date,
                 message=(
                     f"{matched.level.value.upper()}: {product.name} ({product.vendor}) — "
+                    f"{alert_type.value} in {days_remaining} days "
+                    f"(within {matched.label} threshold)"
+                ),
+            )
+        ]
+
+    # ── Domain-specific alert evaluation ─────────────────────────────
+
+    def _evaluate_domain(self, domain: Domain, now: datetime) -> list[Alert]:
+        """Generate SSL and registration expiry alerts for a domain."""
+        alerts: list[Alert] = []
+
+        if domain.ssl_expiry:
+            alerts.extend(
+                self._check_domain_date(
+                    domain, domain.ssl_expiry, AlertType.SSL_EXPIRY, now,
+                )
+            )
+
+        if domain.registration_expiry:
+            alerts.extend(
+                self._check_domain_date(
+                    domain, domain.registration_expiry,
+                    AlertType.DOMAIN_REGISTRATION_EXPIRY, now,
+                )
+            )
+
+        return alerts
+
+    def _check_domain_date(
+        self,
+        domain: Domain,
+        target_date: datetime,
+        alert_type: AlertType,
+        now: datetime,
+    ) -> list[Alert]:
+        """Check a domain date against thresholds and produce alerts."""
+        days_remaining = (target_date - now).days
+
+        if days_remaining < 0:
+            return [
+                Alert(
+                    product_id=domain.domain_id,
+                    product_name=domain.hostname,
+                    vendor="",
+                    alert_type=alert_type,
+                    alert_level=AlertLevel.EXPIRED,
+                    days_remaining=days_remaining,
+                    target_date=target_date,
+                    source_type="domain",
+                    message=(
+                        f"EXPIRED: {domain.hostname} — "
+                        f"{alert_type.value} was {abs(days_remaining)} days ago"
+                    ),
+                )
+            ]
+
+        matched = None
+        for threshold in self._thresholds:
+            if days_remaining <= threshold.days:
+                matched = threshold
+                break
+
+        if not matched:
+            return []
+
+        return [
+            Alert(
+                product_id=domain.domain_id,
+                product_name=domain.hostname,
+                vendor="",
+                alert_type=alert_type,
+                alert_level=matched.level,
+                days_remaining=days_remaining,
+                target_date=target_date,
+                source_type="domain",
+                message=(
+                    f"{matched.level.value.upper()}: {domain.hostname} — "
                     f"{alert_type.value} in {days_remaining} days "
                     f"(within {matched.label} threshold)"
                 ),

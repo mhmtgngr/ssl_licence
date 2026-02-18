@@ -92,8 +92,9 @@
                         <td>{% if p.annual_cost %}${{ "{:,.0f}".format(p.annual_cost) }}{% else %}-{% endif %}</td>
                         <td><span class="badge bg-light text-dark">{{ p.environment }}</span></td>
                         <td>
-                            <form method="post" action="{{ url_for('products.delete_product', product_id=p.product_id) }}" style="display:inline">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this product?')">
+                            <form method="post" action="{{ url_for('products.delete_product', product_id=p.product_id) }}" style="display:inline" data-confirm="Delete this product?">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Delete {{ p.name }}">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>

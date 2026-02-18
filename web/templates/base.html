@@ -9,12 +9,14 @@
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
 </head>
 <body>
+    <a href="#main-content" class="visually-hidden-focusable">Skip to main content</a>
+
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
         <div class="container-fluid" style="max-width: 1400px;">
             <a class="navbar-brand fw-semibold" href="{{ url_for('dashboard.index') }}">
                 <i class="bi bi-shield-lock"></i> SSL Licence Manager
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -59,23 +61,33 @@
                             <i class="bi bi-globe2"></i> Domains
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.blueprint == 'settings' %}active{% endif %}" href="{{ url_for('settings.index') }}">
+                            <i class="bi bi-gear"></i> Settings
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <main class="container-fluid py-4">
+    <!-- Toast notifications -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;" role="status" aria-live="polite">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
-        <div class="alert alert-{{ category }} alert-dismissible fade show">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="toast align-items-center text-bg-{{ category }} border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="5000">
+            <div class="d-flex">
+                <div class="toast-body">{{ message }}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
         </div>
         {% endfor %}
         {% endif %}
         {% endwith %}
+    </div>
 
+    <main id="main-content" class="container-fluid py-4">
         {% block content %}{% endblock %}
     </main>
 
@@ -83,6 +95,70 @@
         <small>SSL Licence Manager &copy; 2026</small>
     </footer>
 
+    <!-- Confirmation modal -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmModalLabel">Confirm</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody">Are you sure?</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmModalOk">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-show toast notifications
+        document.querySelectorAll('.toast').forEach(function(el) {
+            new bootstrap.Toast(el).show();
+        });
+
+        // Confirmation modal for data-confirm forms
+        var confirmModal = document.getElementById('confirmModal');
+        if (confirmModal) {
+            var modal = new bootstrap.Modal(confirmModal);
+            var confirmOk = document.getElementById('confirmModalOk');
+            var pendingForm = null;
+
+            document.addEventListener('submit', function(e) {
+                var form = e.target;
+                var msg = form.dataset.confirm;
+                if (msg && !form.dataset.confirmed) {
+                    e.preventDefault();
+                    document.getElementById('confirmModalBody').textContent = msg;
+                    pendingForm = form;
+                    modal.show();
+                }
+            });
+
+            confirmOk.addEventListener('click', function() {
+                if (pendingForm) {
+                    pendingForm.dataset.confirmed = 'true';
+                    pendingForm.submit();
+                    pendingForm = null;
+                }
+                modal.hide();
+            });
+        }
+
+        // Loading state on form submit
+        document.addEventListener('submit', function(e) {
+            var form = e.target;
+            if (form.dataset.confirm && !form.dataset.confirmed) return;
+            var btn = form.querySelector('button[type="submit"]:focus') || form.querySelector('button[type="submit"]');
+            if (btn && !btn.dataset.noSpinner) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Working...';
+            }
+        });
+    });
+    </script>
 </body>
 </html>

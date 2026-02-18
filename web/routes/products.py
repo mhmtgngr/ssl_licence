@@ -64,13 +64,26 @@ def list_products():
 @bp.route("/add", methods=["GET", "POST"])
 def add_product():
     if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        vendor = request.form.get("vendor", "").strip()
+        version = request.form.get("version", "").strip()
+        if not name or not vendor or not version:
+            flash("Name, Vendor, and Version are required.", "danger")
+            return redirect(url_for("products.add_product"))
+
+        try:
+            category = ProductCategory(request.form.get("category", "other"))
+        except ValueError:
+            flash("Invalid category.", "danger")
+            return redirect(url_for("products.add_product"))
+
         registry = get_registry()
         tags = [t.strip() for t in request.form.get("tags", "").split(",") if t.strip()]
         product = Product(
-            name=request.form["name"],
-            vendor=request.form["vendor"],
-            version=request.form["version"],
-            category=ProductCategory(request.form["category"]),
+            name=name,
+            vendor=vendor,
+            version=version,
+            category=category,
             licence_type=LicenceType(request.form.get("licence_type", "subscription")),
             licence_key=request.form.get("licence_key", ""),
             licence_quantity=int(request.form.get("licence_quantity", 1)),
