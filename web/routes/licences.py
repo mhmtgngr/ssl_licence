@@ -21,6 +21,12 @@ def list_licences():
 @bp.route("/issue", methods=["GET", "POST"])
 def issue():
     if request.method == "POST":
+        issued_to = request.form.get("issued_to", "").strip()
+        licence_type = request.form.get("licence_type", "").strip()
+        if not issued_to or not licence_type:
+            flash("Licence type and Issued To are required.", "danger")
+            return redirect(url_for("licences.issue"))
+
         mgr = get_licence_manager()
         valid_days = request.form.get("valid_days")
         valid_days = int(valid_days) if valid_days else None
@@ -28,8 +34,8 @@ def issue():
 
         try:
             licence = mgr.issue(
-                licence_type=request.form["licence_type"],
-                issued_to=request.form["issued_to"],
+                licence_type=licence_type,
+                issued_to=issued_to,
                 valid_days=valid_days,
                 features=features or None,
                 max_users=int(request.form.get("max_users", 1)),
@@ -47,7 +53,10 @@ def validate():
     result = None
     key = ""
     if request.method == "POST":
-        key = request.form["licence_key"]
+        key = request.form.get("licence_key", "").strip()
+        if not key:
+            flash("Please enter a licence key.", "danger")
+            return redirect(url_for("licences.validate"))
         mgr = get_licence_manager()
         result = mgr.validate(key)
     return render_template("licences/validate.html", result=result, key=key)
@@ -55,7 +64,7 @@ def validate():
 
 @bp.route("/revoke", methods=["POST"])
 def revoke():
-    key = request.form["licence_key"]
+    key = request.form.get("licence_key", "")
     mgr = get_licence_manager()
     if mgr.revoke(key):
         flash(f"Licence revoked: {key}", "success")

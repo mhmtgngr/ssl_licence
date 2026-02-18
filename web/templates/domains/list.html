@@ -134,11 +134,11 @@
                     <td class="text-end" style="white-space:nowrap;">
                         <form method="post" action="{{ url_for('domains.refresh_domain', domain_id=d.domain_id) }}" style="display:inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Refresh" aria-label="Refresh {{ d.hostname }}"><i class="bi bi-arrow-clockwise"></i></button>
                         </form>
-                        <form method="post" action="{{ url_for('domains.delete_domain', domain_id=d.domain_id) }}" style="display:inline">
+                        <form method="post" action="{{ url_for('domains.delete_domain', domain_id=d.domain_id) }}" style="display:inline" data-confirm="Delete {{ d.hostname }}?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete {{ d.hostname }}?')"><i class="bi bi-trash"></i></button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete {{ d.hostname }}"><i class="bi bi-trash"></i></button>
                         </form>
                     </td>
                 </tr>

@@ -34,10 +34,10 @@
                         </td>
                         <td>
                             {% if not lic.revoked %}
-                            <form method="post" action="{{ url_for('licences.revoke') }}" style="display:inline">
+                            <form method="post" action="{{ url_for('licences.revoke') }}" style="display:inline" data-confirm="Revoke this licence?">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="licence_key" value="{{ lic.key }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke this licence?')">Revoke</button>
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
                             </form>
                             {% endif %}
                         </td>

@@ -4,11 +4,11 @@ import json
 from pathlib import Path
 
 from flask import Blueprint, render_template, request
-from web.services import get_registry, get_alert_engine, get_report_generator, PROJECT_ROOT
+from web.services import get_registry, get_alert_engine, get_report_generator, _DATA_DIR
 
 bp = Blueprint("reports", __name__)
 
-DAILY_REPORTS_DIR = PROJECT_ROOT / "data" / "daily_reports"
+DAILY_REPORTS_DIR = _DATA_DIR / "daily_reports"
 
 
 @bp.route("/")

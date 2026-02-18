@@ -1,15 +1,18 @@
 """Backend service initialization for the web dashboard."""
 
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-REGISTRY_PATH = str(PROJECT_ROOT / "data" / "products" / "registry.json")
-SETTINGS_PATH = str(PROJECT_ROOT / "data" / "settings.json")
-LICENCE_STORAGE = str(PROJECT_ROOT / "data" / "licences.json")
-CERT_CHECKS_PATH = PROJECT_ROOT / "data" / "cert_checks.json"
+_DATA_DIR = Path(os.environ.get("SSL_LICENCE_DATA_DIR", str(PROJECT_ROOT / "data")))
+
+REGISTRY_PATH = str(_DATA_DIR / "products" / "registry.json")
+SETTINGS_PATH = str(_DATA_DIR / "settings.json")
+LICENCE_STORAGE = str(_DATA_DIR / "licences.json")
+CERT_CHECKS_PATH = _DATA_DIR / "cert_checks.json"
 SSLCERT_BASE_DIR = str(PROJECT_ROOT / "sslcert")
-DOMAIN_REGISTRY_PATH = str(PROJECT_ROOT / "data" / "domains" / "registry.json")
-LETSENCRYPT_DIR = str(PROJECT_ROOT / "data" / "letsencrypt")
+DOMAIN_REGISTRY_PATH = str(_DATA_DIR / "domains" / "registry.json")
+LETSENCRYPT_DIR = str(_DATA_DIR / "letsencrypt")
 
 
 def get_registry():
@@ -24,7 +27,7 @@ def get_alert_engine(registry=None):
     domain_registry = get_domain_registry()
     engine = AlertEngine(
         registry,
-        history_path=str(PROJECT_ROOT / "data" / "alerts_history.json"),
+        history_path=str(_DATA_DIR / "alerts_history.json"),
         domain_registry=domain_registry,
     )
     engine.evaluate_all()
