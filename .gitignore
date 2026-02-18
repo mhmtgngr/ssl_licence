@@ -19,8 +19,11 @@ ssl/certs/*.pem
 ssl/csr/*.csr
 ssl/csr/*_san.cnf
 
-# Licence data
-data/licences.json
+# Runtime data
+data/
+
+# Claude Code
+.claude/
 
 # IDE
 .idea/
