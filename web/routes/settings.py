@@ -62,19 +62,20 @@ def save_alerts():
 
 @bp.route("/test-azure", methods=["POST"])
 def test_azure():
-    store = get_settings_store()
-    azure = store.get_section("azure_dns")
-    if not azure.get("subscription_id"):
-        flash("Azure DNS not configured — please save credentials first.", "warning")
-        return redirect(url_for("settings.index"))
-
     try:
         svc = get_azure_dns_service()
         if svc.is_configured():
+            subs = svc.list_subscriptions()
             zones = svc.list_zones()
-            flash(f"Azure DNS connection successful — {len(zones)} zone(s) found.", "success")
+            sub_names = ", ".join(s["display_name"] for s in subs) if subs else "none"
+            flash(
+                f"Azure DNS connection successful — "
+                f"{len(subs)} subscription(s) ({sub_names}), "
+                f"{len(zones)} zone(s) found.",
+                "success",
+            )
         else:
-            flash("Azure DNS credentials invalid or missing Azure SDK packages.", "danger")
+            flash("Azure DNS credentials invalid or missing. Set AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET.", "danger")
     except Exception as e:
         flash(f"Azure DNS connection failed: {e}", "danger")
     return redirect(url_for("settings.index"))

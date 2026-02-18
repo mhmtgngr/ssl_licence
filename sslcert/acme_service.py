@@ -126,7 +126,7 @@ class AcmeService:
                 message="Cannot use dns-azure without Azure DNS credentials",
             )
 
-        zone_name, rg = self.azure_dns.find_zone_for_domain(domain)
+        zone_name, rg, _sub_id = self.azure_dns.find_zone_for_domain(domain)
         if not zone_name:
             return AcmeResult(
                 success=False, domain=domain,

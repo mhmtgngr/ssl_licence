@@ -408,7 +408,7 @@ def import_azure():
     """Import domains from Azure DNS zones."""
     azure_dns = get_azure_dns_service()
     if not azure_dns.is_configured():
-        flash("Azure DNS is not configured. Set AZURE_SUBSCRIPTION_ID and credentials.", "danger")
+        flash("Azure DNS is not configured. Set AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET in .env or Settings.", "danger")
         return redirect(url_for("domains.import_domains"))
 
     action = request.form.get("action", "list_zones")
@@ -427,11 +427,12 @@ def import_azure():
     elif action == "list_records":
         zone_name = request.form.get("zone_name", "")
         resource_group = request.form.get("resource_group", "")
+        subscription_id = request.form.get("subscription_id", "")
         if not zone_name:
             flash("Please select a zone.", "danger")
             return redirect(url_for("domains.import_domains"))
 
-        records = azure_dns.list_records(zone_name, resource_group)
+        records = azure_dns.list_records(zone_name, resource_group, subscription_id=subscription_id)
         seen = set()
         unique_records = []
         for r in records:

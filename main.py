@@ -25,6 +25,9 @@ import json
 import sys
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from config.settings import LICENCE_SIGNING_SECRET, LICENCE_STORAGE_PATH
 from sslcert.certificate import CertificateManager, CertificateInfo
 from sslcert.monitor import CertificateMonitor

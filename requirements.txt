@@ -1,6 +1,7 @@
 # Web dashboard
 Flask>=3.0
 flask-wtf>=1.2
+python-dotenv>=1.0
 
 # Background scheduler
 APScheduler>=3.10
@@ -11,6 +12,7 @@ dnspython>=2.4
 # Azure DNS integration
 azure-identity>=1.15
 azure-mgmt-dns>=8.1
+azure-mgmt-subscription>=3.1
 
 # Core functionality uses only Python standard library modules:
 #   - ssl, socket, subprocess, hashlib, hmac, secrets

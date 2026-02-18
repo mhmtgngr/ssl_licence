@@ -4,6 +4,9 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()  # Load .env file if present (already gitignored)
+
 from flask import Flask, jsonify, render_template, request
 from flask_wtf.csrf import CSRFProtect
 

@@ -39,9 +39,10 @@
                                    value="{{ azure_dns.get('tenant_id', '') }}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="subscription_id" class="form-label">Subscription ID</label>
+                            <label for="subscription_id" class="form-label">Subscription ID <small class="text-muted">(optional)</small></label>
                             <input type="text" class="form-control" id="subscription_id" name="subscription_id"
-                                   value="{{ azure_dns.get('subscription_id', '') }}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                                   value="{{ azure_dns.get('subscription_id', '') }}" placeholder="Auto-discovered if empty">
+                            <div class="form-text">Leave blank to auto-discover all subscriptions.</div>
                         </div>
                     </div>
                     <div class="row">
@@ -58,9 +59,10 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="resource_group" class="form-label">Resource Group</label>
+                            <label for="resource_group" class="form-label">Resource Group <small class="text-muted">(optional)</small></label>
                             <input type="text" class="form-control" id="resource_group" name="resource_group"
-                                   value="{{ azure_dns.get('resource_group', '') }}" placeholder="my-resource-group">
+                                   value="{{ azure_dns.get('resource_group', '') }}" placeholder="All resource groups if empty">
+                            <div class="form-text">Leave blank to search all resource groups.</div>
                         </div>
                     </div>
                     <div class="d-flex gap-2">
