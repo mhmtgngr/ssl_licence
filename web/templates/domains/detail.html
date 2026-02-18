@@ -84,7 +84,23 @@
                             {% elif domain.ssl_status == 'fail' %}<span class="badge bg-dark">FAIL</span>
                             {% else %}<span class="badge bg-secondary">Not checked</span>{% endif %}
                         </td></tr>
-                        <tr><th>Issuer</th><td>{{ domain.ssl_issuer or '-' }}</td></tr>
+                        <tr><th>Certificate Type</th><td>
+                            {% if domain.ssl_certificate_type.value == 'wildcard' %}
+                            <span class="badge bg-info text-dark">Wildcard</span>
+                            {% elif domain.ssl_certificate_type.value == 'san' %}
+                            <span class="badge text-white" style="background-color:#6f42c1;">SAN / Multi-Domain</span>
+                            {% elif domain.ssl_certificate_type.value == 'single' %}
+                            <span class="badge bg-secondary">Single Domain</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted">Unknown</span>
+                            {% endif %}
+                        </td></tr>
+                        <tr><th>Certificate Authority</th><td>
+                            {% if domain.ssl_ca_name %}
+                            <span class="fw-semibold">{{ domain.ssl_ca_name }}</span>
+                            {% else %}-{% endif %}
+                        </td></tr>
+                        <tr><th>Issuer (Raw)</th><td><small class="text-muted">{{ domain.ssl_issuer or '-' }}</small></td></tr>
                         <tr><th>Expiry Date</th><td>{{ domain.ssl_expiry.strftime('%Y-%m-%d %H:%M UTC') if domain.ssl_expiry else '-' }}</td></tr>
                         <tr><th>Days Remaining</th><td>
                             {% if domain.ssl_days_remaining is not none %}
@@ -94,6 +110,14 @@
                             {% else %}-{% endif %}
                         </td></tr>
                         <tr><th>Warning Threshold</th><td>{{ domain.warning_days }} days</td></tr>
+                        {% if domain.ssl_san_domains %}
+                        <tr><th>SAN Domains</th><td>
+                            {% for san in domain.ssl_san_domains %}
+                            <div><code class="small">{{ san }}</code></div>
+                            {% endfor %}
+                            <small class="text-muted">{{ domain.ssl_san_domains|length }} domain{{ 's' if domain.ssl_san_domains|length != 1 }}</small>
+                        </td></tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>

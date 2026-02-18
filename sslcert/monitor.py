@@ -9,6 +9,88 @@ from pathlib import Path
 from typing import Optional
 
 
+# Known Certificate Authority mappings: issuer organizationName -> friendly name
+_CA_MAP = {
+    "let's encrypt": "Let's Encrypt",
+    "internet security research group": "Let's Encrypt",
+    "isrg": "Let's Encrypt",
+    "sectigo": "Sectigo",
+    "comodo": "Sectigo",
+    "comodo ca": "Sectigo",
+    "usertrust": "Sectigo",
+    "digicert": "DigiCert",
+    "digicert inc": "DigiCert",
+    "geotrust": "DigiCert",
+    "rapidssl": "DigiCert",
+    "thawte": "DigiCert",
+    "symantec": "DigiCert",
+    "globalsign": "GlobalSign",
+    "globalsign nv-sa": "GlobalSign",
+    "godaddy": "GoDaddy",
+    "godaddy.com, inc.": "GoDaddy",
+    "starfield technologies": "GoDaddy",
+    "amazon": "Amazon",
+    "amazon.com": "Amazon",
+    "google trust services": "Google Trust Services",
+    "google trust services llc": "Google Trust Services",
+    "cloudflare": "Cloudflare",
+    "cloudflare, inc.": "Cloudflare",
+    "microsoft": "Microsoft",
+    "microsoft corporation": "Microsoft",
+    "entrust": "Entrust",
+    "entrust, inc.": "Entrust",
+    "buypass": "Buypass",
+    "buypass as": "Buypass",
+    "ssl.com": "SSL.com",
+    "zerossl": "ZeroSSL",
+    "certigna": "Certigna",
+    "actalis": "Actalis",
+    "e-tugra": "E-Tugra",
+    "certum": "Certum",
+    "trustwave": "Trustwave",
+}
+
+
+def extract_ca_name(issuer: str) -> str:
+    """Extract a clean CA name from raw issuer string.
+
+    Tries to match organizationName or commonName against known CAs.
+    Falls back to the raw organizationName or shortened issuer.
+    """
+    if not issuer:
+        return ""
+
+    # Extract organizationName value
+    org_name = ""
+    cn_name = ""
+    for part in issuer.split(","):
+        part = part.strip()
+        if part.startswith("organizationName="):
+            org_name = part.split("=", 1)[1].strip()
+        elif part.startswith("commonName="):
+            cn_name = part.split("=", 1)[1].strip()
+
+    # Try matching org name against known CAs
+    for candidate in (org_name, cn_name):
+        if not candidate:
+            continue
+        candidate_lower = candidate.lower().strip()
+        # Direct match
+        if candidate_lower in _CA_MAP:
+            return _CA_MAP[candidate_lower]
+        # Partial match
+        for key, friendly in _CA_MAP.items():
+            if key in candidate_lower or candidate_lower in key:
+                return friendly
+
+    # Fallback: return org name if found, else CN, else raw issuer truncated
+    if org_name:
+        return org_name
+    if cn_name:
+        return cn_name
+    return issuer[:60] if len(issuer) > 60 else issuer
+
+
 @dataclass
 class CertStatus:
     """Status of a monitored certificate."""
@@ -21,6 +103,15 @@ class CertStatus:
     days_remaining: int
     is_expired: bool
     serial_number: str
+    san_domains: list[str] = None
+    certificate_type: str = "unknown"   # single, wildcard, san, unknown
+    ca_name: str = ""                   # Friendly CA name
+
+    def __post_init__(self):
+        if self.san_domains is None:
+            self.san_domains = []
+        if not self.ca_name and self.issuer:
+            self.ca_name = extract_ca_name(self.issuer)
 
 
 class CertificateMonitor:
@@ -115,8 +206,23 @@ class CertificateMonitor:
                 "days_remaining": s.days_remaining,
                 "is_expired": s.is_expired,
                 "serial_number": s.serial_number,
+                "san_domains": s.san_domains,
+                "certificate_type": s.certificate_type,
+                "ca_name": s.ca_name,
             })
         Path(output_path).write_text(json.dumps(data, indent=2))
+
+    @staticmethod
+    def _classify_cert_type(san_domains: list[str]) -> str:
+        """Classify certificate type based on SAN entries."""
+        if not san_domains:
+            return "single"
+        has_wildcard = any(d.startswith("*.") for d in san_domains)
+        if has_wildcard:
+            return "wildcard"
+        if len(san_domains) > 1:
+            return "san"
+        return "single"
 
     @staticmethod
     def _parse_peer_cert(domain: str, cert: dict) -> CertStatus:
@@ -140,15 +246,27 @@ class CertificateMonitor:
             for attr_name, attr_value in rdn:
                 issuer_parts.append(f"{attr_name}={attr_value}")
 
+        # Extract SAN domains
+        san_domains = []
+        for san_type, san_value in cert.get("subjectAltName", ()):
+            if san_type == "DNS":
+                san_domains.append(san_value)
+
+        cert_type = CertificateMonitor._classify_cert_type(san_domains)
+
+        issuer_str = ", ".join(issuer_parts)
         return CertStatus(
             domain=domain,
-            issuer=", ".join(issuer_parts),
+            issuer=issuer_str,
             subject=", ".join(subject_parts),
             not_before=not_before,
             not_after=not_after,
             days_remaining=days_remaining,
             is_expired=days_remaining < 0,
             serial_number=cert.get("serialNumber", ""),
+            san_domains=san_domains,
+            certificate_type=cert_type,
+            ca_name=extract_ca_name(issuer_str),
         )
 
     @staticmethod

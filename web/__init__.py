@@ -72,7 +72,7 @@ def create_app():
     def inject_enums():
         from tracker.product import ProductCategory, LicenceType, SupportStatus
         from tracker.alert_engine import AlertLevel, AlertType
-        from tracker.domain import DomainType, DomainStatus
+        from tracker.domain import DomainType, DomainStatus, CertificateType
         return {
             "ProductCategory": ProductCategory,
             "LicenceType": LicenceType,
@@ -81,6 +81,7 @@ def create_app():
             "AlertType": AlertType,
             "DomainType": DomainType,
             "DomainStatus": DomainStatus,
+            "CertificateType": CertificateType,
         }
 
     # Start scheduler (only in non-testing mode)

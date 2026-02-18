@@ -64,8 +64,24 @@
         </select>
     </div>
     <div class="col-auto">
+        <select name="cert_type" class="form-select form-select-sm">
+            <option value="">All Cert Types</option>
+            {% for ct in CertificateType %}
+            <option value="{{ ct.value }}" {% if cert_type_filter == ct.value %}selected{% endif %}>{{ ct.value|title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="ca" class="form-select form-select-sm">
+            <option value="">All CAs</option>
+            {% for ca in ca_names %}
+            <option value="{{ ca }}" {% if ca_filter == ca %}selected{% endif %}>{{ ca }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
         <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
-        {% if q or status_filter or type_filter or parent_filter %}
+        {% if q or status_filter or type_filter or parent_filter or cert_type_filter or ca_filter %}
         <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
         {% endif %}
     </div>
@@ -79,6 +95,8 @@
                 <tr>
                     <th>Hostname</th>
                     <th>Type</th>
+                    <th>Cert Type</th>
+                    <th>CA</th>
                     <th>IP Address</th>
                     <th>SSL Status</th>
                     <th>SSL Expiry</th>
@@ -99,6 +117,18 @@
                         {% if d.auto_discovered %}<span class="badge bg-light text-muted ms-1" title="Auto-discovered">{% if 'azure-dns' in d.tags %}azure{% elif 'zone-transfer' in d.tags %}axfr{% else %}auto{% endif %}</span>{% endif %}
                     </td>
                     <td><span class="badge bg-light text-dark">{{ d.domain_type.value|title }}</span></td>
+                    <td>
+                        {% if d.ssl_certificate_type.value == 'wildcard' %}
+                        <span class="badge bg-info text-dark">Wildcard</span>
+                        {% elif d.ssl_certificate_type.value == 'san' %}
+                        <span class="badge bg-purple text-white" style="background-color:#6f42c1!important;">SAN</span>
+                        {% elif d.ssl_certificate_type.value == 'single' %}
+                        <span class="badge bg-secondary">Single</span>
+                        {% else %}
+                        <span class="badge bg-light text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td><small>{{ d.ssl_ca_name or '-' }}</small></td>
                     <td><code>{{ d.ip_address or '-' }}</code></td>
                     <td>
                         {% if d.ssl_status == 'ok' %}

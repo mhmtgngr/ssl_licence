@@ -10,16 +10,28 @@
     <div class="card-body">
         {# Read-only info #}
         <div class="mb-3 p-3 bg-light rounded">
-            <div class="row">
-                <div class="col-sm-4"><strong>Hostname</strong><br>{{ domain.hostname }}</div>
-                <div class="col-sm-4"><strong>IP</strong><br><code>{{ domain.ip_address or '-' }}</code></div>
-                <div class="col-sm-4"><strong>SSL</strong><br>
+            <div class="row g-2">
+                <div class="col-sm-3"><strong>Hostname</strong><br>{{ domain.hostname }}</div>
+                <div class="col-sm-2"><strong>IP</strong><br><code>{{ domain.ip_address or '-' }}</code></div>
+                <div class="col-sm-2"><strong>SSL</strong><br>
                     {% if domain.ssl_status == 'ok' %}<span class="badge bg-success">OK</span>
                     {% elif domain.ssl_status == 'warning' %}<span class="badge bg-warning text-dark">WARNING</span>
                     {% elif domain.ssl_status == 'expired' %}<span class="badge bg-danger">EXPIRED</span>
                     {% elif domain.ssl_status == 'fail' %}<span class="badge bg-dark">FAIL</span>
                     {% else %}<span class="badge bg-secondary">-</span>{% endif %}
                     {% if domain.ssl_days_remaining is not none %} ({{ domain.ssl_days_remaining }}d){% endif %}
+                </div>
+                <div class="col-sm-2"><strong>Cert Type</strong><br>
+                    {% if domain.ssl_certificate_type.value == 'wildcard' %}
+                    <span class="badge bg-info text-dark">Wildcard</span>
+                    {% elif domain.ssl_certificate_type.value == 'san' %}
+                    <span class="badge text-white" style="background-color:#6f42c1;">SAN</span>
+                    {% elif domain.ssl_certificate_type.value == 'single' %}
+                    <span class="badge bg-secondary">Single</span>
+                    {% else %}<span class="badge bg-light text-muted">-</span>{% endif %}
+                </div>
+                <div class="col-sm-3"><strong>CA</strong><br>
+                    <small>{{ domain.ssl_ca_name or '-' }}</small>
                 </div>
             </div>
         </div>

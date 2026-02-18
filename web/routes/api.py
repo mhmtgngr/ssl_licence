@@ -188,6 +188,9 @@ def refresh_domain(domain_id):
         ssl_expiry=domain.ssl_expiry,
         ssl_days_remaining=domain.ssl_days_remaining,
         ssl_status=domain.ssl_status,
+        ssl_certificate_type=domain.ssl_certificate_type,
+        ssl_san_domains=domain.ssl_san_domains,
+        ssl_ca_name=domain.ssl_ca_name,
         status=domain.status,
         last_checked=domain.last_checked,
     )

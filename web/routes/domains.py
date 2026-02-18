@@ -12,7 +12,7 @@ from web.services import (
     get_azure_dns_service,
     get_zone_transfer_service,
 )
-from tracker.domain import Domain, DomainStatus, DomainType
+from tracker.domain import Domain, DomainStatus, DomainType, CertificateType
 
 bp = Blueprint("domains", __name__)
 
@@ -24,6 +24,12 @@ def _update_domain_ssl(domain: Domain, monitor) -> None:
         domain.ssl_issuer = status.issuer
         domain.ssl_expiry = status.not_after
         domain.ssl_days_remaining = status.days_remaining
+        domain.ssl_san_domains = status.san_domains
+        domain.ssl_ca_name = status.ca_name
+        try:
+            domain.ssl_certificate_type = CertificateType(status.certificate_type)
+        except ValueError:
+            domain.ssl_certificate_type = CertificateType.UNKNOWN
         if status.is_expired:
             domain.ssl_status = "expired"
             domain.status = DomainStatus.EXPIRED
@@ -35,6 +41,9 @@ def _update_domain_ssl(domain: Domain, monitor) -> None:
             domain.status = DomainStatus.ACTIVE
     else:
         domain.ssl_status = "fail"
+        domain.ssl_certificate_type = CertificateType.UNKNOWN
+        domain.ssl_san_domains = []
+        domain.ssl_ca_name = ""
         domain.status = DomainStatus.UNREACHABLE
 
 
@@ -68,6 +77,8 @@ def list_domains():
     status_filter = request.args.get("status", "")
     type_filter = request.args.get("type", "")
     parent_filter = request.args.get("parent", "")
+    cert_type_filter = request.args.get("cert_type", "")
+    ca_filter = request.args.get("ca", "")
     q = request.args.get("q", "").strip().lower()
 
     if status_filter:
@@ -82,6 +93,13 @@ def list_domains():
             pass
     if parent_filter:
         domains = [d for d in domains if d.parent_domain.lower() == parent_filter.lower()]
+    if cert_type_filter:
+        try:
+            domains = [d for d in domains if d.ssl_certificate_type == CertificateType(cert_type_filter)]
+        except ValueError:
+            pass
+    if ca_filter:
+        domains = [d for d in domains if d.ssl_ca_name == ca_filter]
     if q:
         domains = [
             d for d in domains
@@ -89,9 +107,10 @@ def list_domains():
             or q in d.hosting_provider.lower()
         ]
 
-    # Get unique parent domains for filter dropdown
+    # Get unique parent domains and CA names for filter dropdowns
     all_domains = registry.list_all()
     parents = sorted(set(d.parent_domain for d in all_domains if d.parent_domain))
+    ca_names = sorted(set(d.ssl_ca_name for d in all_domains if d.ssl_ca_name))
     summary = registry.summary()
 
     return render_template(
@@ -99,9 +118,12 @@ def list_domains():
         domains=domains,
         summary=summary,
         parents=parents,
+        ca_names=ca_names,
         status_filter=status_filter,
         type_filter=type_filter,
         parent_filter=parent_filter,
+        cert_type_filter=cert_type_filter,
+        ca_filter=ca_filter,
         q=q,
     )
 
@@ -230,6 +252,9 @@ def refresh_domain(domain_id):
         ssl_expiry=domain.ssl_expiry,
         ssl_days_remaining=domain.ssl_days_remaining,
         ssl_status=domain.ssl_status,
+        ssl_certificate_type=domain.ssl_certificate_type,
+        ssl_san_domains=domain.ssl_san_domains,
+        ssl_ca_name=domain.ssl_ca_name,
         status=domain.status,
         last_checked=domain.last_checked,
     )

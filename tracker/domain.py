@@ -39,6 +39,15 @@ class DomainType(str, Enum):
     WILDCARD = "wildcard"
 
 
+class CertificateType(str, Enum):
+    """SSL certificate type classification."""
+
+    SINGLE = "single"              # Standard single-domain certificate
+    WILDCARD = "wildcard"          # Wildcard certificate (*.example.com)
+    SAN = "san"                    # SAN / multi-domain certificate
+    UNKNOWN = "unknown"            # Not yet determined
+
+
 class DomainStatus(str, Enum):
     """Current status of a tracked domain."""
 
@@ -64,6 +73,9 @@ class Domain:
     ssl_expiry: Optional[datetime] = None
     ssl_days_remaining: Optional[int] = None
     ssl_status: str = ""             # ok/warning/expired/fail
+    ssl_certificate_type: CertificateType = CertificateType.UNKNOWN
+    ssl_san_domains: list[str] = field(default_factory=list)
+    ssl_ca_name: str = ""                # Friendly CA name (Let's Encrypt, Sectigo, etc.)
 
     # DNS info
     ip_address: str = ""
@@ -144,6 +156,9 @@ class Domain:
             "ssl_expiry": fmt_dt(self.ssl_expiry),
             "ssl_days_remaining": self.ssl_days_remaining,
             "ssl_status": self.ssl_status,
+            "ssl_certificate_type": self.ssl_certificate_type.value,
+            "ssl_san_domains": self.ssl_san_domains,
+            "ssl_ca_name": self.ssl_ca_name,
             "ip_address": self.ip_address,
             "nameservers": self.nameservers,
             "soa_primary_ns": self.soa_primary_ns,
@@ -193,6 +208,9 @@ class Domain:
             ssl_expiry=parse_dt(data.get("ssl_expiry")),
             ssl_days_remaining=data.get("ssl_days_remaining"),
             ssl_status=data.get("ssl_status", ""),
+            ssl_certificate_type=CertificateType(data.get("ssl_certificate_type", "unknown")),
+            ssl_san_domains=data.get("ssl_san_domains", []),
+            ssl_ca_name=data.get("ssl_ca_name", ""),
             ip_address=data.get("ip_address", ""),
             nameservers=data.get("nameservers", []),
             soa_primary_ns=data.get("soa_primary_ns", ""),

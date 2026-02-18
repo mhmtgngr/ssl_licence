@@ -28,7 +28,7 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-sm mb-0">
-                <thead><tr><th>Domain</th><th>Status</th><th>Issuer</th><th>Expiry</th><th>Days Remaining</th></tr></thead>
+                <thead><tr><th>Domain</th><th>Status</th><th>Cert Type</th><th>CA</th><th>Expiry</th><th>Days Remaining</th></tr></thead>
                 <tbody>
                     {% for r in results %}
                     <tr>
@@ -43,7 +43,18 @@
                             <span class="badge bg-success">OK</span>
                             {% endif %}
                         </td>
-                        <td><small>{{ r.status.issuer.split('organizationName=')[1].split(',')[0] if 'organizationName=' in r.status.issuer else r.status.issuer }}</small></td>
+                        <td>
+                            {% if r.status.certificate_type == 'wildcard' %}
+                            <span class="badge bg-info text-dark">Wildcard</span>
+                            {% elif r.status.certificate_type == 'san' %}
+                            <span class="badge text-white" style="background-color:#6f42c1;">SAN</span>
+                            {% elif r.status.certificate_type == 'single' %}
+                            <span class="badge bg-secondary">Single</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td><small class="fw-semibold">{{ r.status.ca_name or '-' }}</small></td>
                         <td>{{ r.status.not_after.strftime('%Y-%m-%d') }}</td>
                         <td>
                             {% if r.status.days_remaining <= 30 %}
@@ -54,7 +65,7 @@
                         </td>
                         {% else %}
                         <td><span class="badge bg-dark">FAIL</span></td>
-                        <td colspan="3"><small class="text-danger">{{ r.error }}</small></td>
+                        <td colspan="4"><small class="text-danger">{{ r.error }}</small></td>
                         {% endif %}
                     </tr>
                     {% endfor %}
