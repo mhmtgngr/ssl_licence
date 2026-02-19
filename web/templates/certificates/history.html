@@ -14,7 +14,7 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
-                {% from "macros/sort_header.html" import sort_th %}
+                {% from "macros/sort_header.html" import sort_th with context %}
                 <thead>
                     <tr>
                         {{ sort_th("Domain", "domain", sort_field, sort_order) }}

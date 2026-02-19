@@ -1,7 +1,7 @@
 {#- Sortable table header macro.
 
     Usage:
-        {% from "macros/sort_header.html" import sort_th %}
+        {% from "macros/sort_header.html" import sort_th with context %}
         <thead><tr>
             {{ sort_th("Name", "name", sort_field, sort_order) }}
             {{ sort_th("Cost", "cost", sort_field, sort_order) }}
