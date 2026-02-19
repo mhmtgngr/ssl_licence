@@ -11,6 +11,7 @@ from web.services import (
     get_acme_service,
     get_azure_dns_service,
     get_azure_resource_scanner,
+    get_azure_scan_store,
     get_zone_transfer_service,
 )
 from tracker.domain import Domain, DomainStatus, DomainType, CertificateType
@@ -193,7 +194,16 @@ def detail(domain_id):
     if not domain:
         flash("Domain not found.", "danger")
         return redirect(url_for("domains.list_domains"))
-    return render_template("domains/detail.html", domain=domain)
+
+    # Load Azure resource bindings for this domain
+    store = get_azure_scan_store()
+    azure_bindings = store.get_bindings_for_hostname(domain.hostname)
+
+    return render_template(
+        "domains/detail.html",
+        domain=domain,
+        azure_bindings=azure_bindings,
+    )
 
 
 @bp.route("/<domain_id>/edit", methods=["GET", "POST"])
@@ -571,11 +581,55 @@ def import_zone_transfer():
 
 @bp.route("/azure-resources")
 def azure_resources():
-    """Azure Resource Scanner page."""
+    """Azure Resource Scanner page — shows cached results if available."""
     scanner = get_azure_resource_scanner()
+    configured = scanner.is_configured()
+
+    # Load cached scan results
+    store = get_azure_scan_store()
+    cached = store.load()
+    if cached and cached.get("bindings"):
+        from sslcert.azure_resources import AzureResourceBinding
+        bindings = [
+            AzureResourceBinding(**{k: v for k, v in b.items() if k != "ssl_expiry"},
+                                 ssl_expiry=None)
+            for b in cached["bindings"]
+        ]
+        summary = cached["summary"]
+        raw_ts = cached.get("scanned_at", "")
+        try:
+            scanned_at = datetime.fromisoformat(raw_ts).strftime("%Y-%m-%d %H:%M UTC")
+        except (ValueError, TypeError):
+            scanned_at = raw_ts
+
+        from web.sort_utils import sort_items
+        bindings, sort_field, sort_order = sort_items(
+            bindings,
+            request.args.get("sort"),
+            request.args.get("order"),
+            {
+                "hostname": lambda b: (b.hostname or "").lower(),
+                "resource_type": lambda b: b.resource_type,
+                "resource_name": lambda b: (b.resource_name or "").lower(),
+                "subscription": lambda b: (b.subscription_name or "").lower(),
+                "ssl": lambda b: (1 if b.ssl_enabled else 0),
+                "tracked": lambda b: (1 if b.tracked else 0),
+            },
+        )
+
+        return render_template(
+            "domains/azure_resources.html",
+            azure_configured=configured,
+            bindings=bindings,
+            summary=summary,
+            scanned_at=scanned_at,
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+
     return render_template(
         "domains/azure_resources.html",
-        azure_configured=scanner.is_configured(),
+        azure_configured=configured,
     )
 
 
@@ -622,11 +676,16 @@ def azure_resources_scan():
         },
     )
 
+    # Persist results for caching
+    store = get_azure_scan_store()
+    store.save(bindings, summary)
+
     return render_template(
         "domains/azure_resources.html",
         azure_configured=True,
         bindings=bindings,
         summary=summary,
+        scanned_at="just now",
         sort_field=sort_field,
         sort_order=sort_order,
     )

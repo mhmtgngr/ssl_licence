@@ -233,6 +233,48 @@
     </div>
 </div>
 
+{# Azure Resource Bindings #}
+{% if azure_bindings %}
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-cloud-check"></i> Azure Resources ({{ azure_bindings|length }})</div>
+    <div class="card-body table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Resource Type</th>
+                    <th>Resource Name</th>
+                    <th>Resource Group</th>
+                    <th>Subscription</th>
+                    <th>SSL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in azure_bindings %}
+                <tr>
+                    <td>
+                        <span class="badge bg-light text-dark">
+                            {{ b.resource_type|replace('_', ' ')|title }}
+                        </span>
+                    </td>
+                    <td class="fw-semibold">{{ b.resource_name }}</td>
+                    <td><small>{{ b.resource_group }}</small></td>
+                    <td><small>{{ b.subscription_name or b.subscription_id[:8] }}</small></td>
+                    <td>
+                        {% if b.ssl_enabled %}
+                        <span class="badge bg-success">SSL</span>
+                        {% if b.ssl_thumbprint %}<code class="small ms-1">{{ b.ssl_thumbprint[:8] }}...</code>{% endif %}
+                        {% else %}
+                        <span class="badge bg-secondary">No SSL</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 {# SOA Record #}
 {% if domain.soa_primary_ns %}
 <div class="card mb-4">
