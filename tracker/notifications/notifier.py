@@ -82,7 +82,9 @@ class EmailNotifier:
 
     def send(self, alerts: list[Alert]) -> bool:
         """Send alert digest email. Returns True on success."""
+        self.last_error = ""
         if not alerts or not self.to_addrs:
+            self.last_error = "No alerts or no recipients configured."
             return False
 
         subject = self._build_subject(alerts)
@@ -95,7 +97,7 @@ class EmailNotifier:
         msg.attach(MIMEText(body, "html"))
 
         try:
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as server:
                 if self.use_tls:
                     server.starttls()
                 if self.username:
@@ -103,7 +105,8 @@ class EmailNotifier:
                 server.sendmail(self.from_addr, self.to_addrs, msg.as_string())
             logger.info("Alert email sent to %s", self.to_addrs)
             return True
-        except smtplib.SMTPException as e:
+        except Exception as e:
+            self.last_error = str(e)
             logger.error("Failed to send alert email: %s", e)
             return False
 
@@ -166,7 +169,9 @@ class WebhookNotifier:
 
     def send(self, alerts: list[Alert]) -> bool:
         """POST alert data to webhook. Returns True on success."""
+        self.last_error = ""
         if not alerts:
+            self.last_error = "No alerts to send."
             return False
 
         payload = {
@@ -184,7 +189,8 @@ class WebhookNotifier:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 logger.info("Webhook sent, status: %s", resp.status)
                 return resp.status < 400
-        except urllib.error.URLError as e:
+        except Exception as e:
+            self.last_error = str(e)
             logger.error("Webhook failed: %s", e)
             return False
 
@@ -197,7 +203,9 @@ class SlackNotifier:
 
     def send(self, alerts: list[Alert]) -> bool:
         """Post alert summary to Slack channel."""
+        self.last_error = ""
         if not alerts:
+            self.last_error = "No alerts to send."
             return False
 
         blocks = [
@@ -245,7 +253,8 @@ class SlackNotifier:
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 return resp.status == 200
-        except urllib.error.URLError as e:
+        except Exception as e:
+            self.last_error = str(e)
             logger.error("Slack notification failed: %s", e)
             return False
 

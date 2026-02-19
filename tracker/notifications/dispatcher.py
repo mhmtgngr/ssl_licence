@@ -143,7 +143,10 @@ class NotificationDispatcher:
                     return False, "Email not configured or disabled."
                 notifier = self._build_email_notifier(cfg)
                 ok = notifier.send(test_alerts)
-                return bool(ok), "Test email sent." if ok else "Email send failed."
+                if ok:
+                    return True, "Test email sent."
+                detail = getattr(notifier, "last_error", "") or "Unknown error"
+                return False, f"Email send failed: {detail}"
 
             if channel == "slack":
                 cfg = self._store.get_section("notify_slack")
@@ -153,8 +156,12 @@ class NotificationDispatcher:
                     cfg.get("webhook_url")
                     or os.environ.get("SLACK_WEBHOOK_URL", "")
                 )
-                ok = SlackNotifier(webhook_url=webhook_url).send(test_alerts)
-                return bool(ok), "Test Slack message sent." if ok else "Slack send failed."
+                notifier = SlackNotifier(webhook_url=webhook_url)
+                ok = notifier.send(test_alerts)
+                if ok:
+                    return True, "Test Slack message sent."
+                detail = getattr(notifier, "last_error", "") or "Unknown error"
+                return False, f"Slack send failed: {detail}"
 
             if channel == "webhook":
                 cfg = self._store.get_section("notify_webhook")
@@ -162,8 +169,12 @@ class NotificationDispatcher:
                     return False, "Webhook not configured or disabled."
                 url = cfg.get("url") or os.environ.get("NOTIFY_WEBHOOK_URL", "")
                 headers = self._parse_headers(cfg.get("headers"))
-                ok = WebhookNotifier(url=url, headers=headers).send(test_alerts)
-                return bool(ok), "Test webhook sent." if ok else "Webhook send failed."
+                notifier = WebhookNotifier(url=url, headers=headers)
+                ok = notifier.send(test_alerts)
+                if ok:
+                    return True, "Test webhook sent."
+                detail = getattr(notifier, "last_error", "") or "Unknown error"
+                return False, f"Webhook send failed: {detail}"
 
             return False, f"Unknown channel: {channel}"
 
