@@ -152,10 +152,12 @@ class AzureResourceScanner:
             try:
                 bindings = client.web_apps.list_host_name_bindings(rg, app.name)
                 for binding in bindings:
-                    # Skip default .azurewebsites.net hostnames
+                    # Skip Azure-managed default hostnames
                     if binding.host_name_type and str(binding.host_name_type) == "Managed":
                         continue
                     hostname = binding.name.split("/")[-1] if "/" in binding.name else binding.name
+                    if self._is_azure_default_hostname(hostname):
+                        continue
                     results.append(AzureResourceBinding(
                         resource_type="app_service",
                         resource_name=app.name,
@@ -292,6 +294,25 @@ class AzureResourceScanner:
         return results
 
     # ── Helpers ───────────────────────────────────────────────────
+
+    # Azure-managed default hostname suffixes to skip
+    _AZURE_DEFAULT_SUFFIXES = (
+        ".azurewebsites.net",
+        ".scm.azurewebsites.net",
+        ".azurefd.net",
+        ".azureedge.net",
+        ".azure-api.net",
+        ".cloudapp.azure.com",
+        ".trafficmanager.net",
+        ".azurecontainer.io",
+        ".azurecr.io",
+    )
+
+    @classmethod
+    def _is_azure_default_hostname(cls, hostname: str) -> bool:
+        """Check if a hostname is an Azure-managed default (not custom)."""
+        h = hostname.lower()
+        return any(h.endswith(suffix) for suffix in cls._AZURE_DEFAULT_SUFFIXES)
 
     @staticmethod
     def _extract_resource_group(resource_id: str) -> str:
