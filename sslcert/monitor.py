@@ -60,14 +60,14 @@ def extract_ca_name(issuer: str) -> str:
     if not issuer:
         return ""
 
-    # Extract organizationName value
+    # Extract organizationName value (handles both long and short field names)
     org_name = ""
     cn_name = ""
     for part in issuer.split(","):
         part = part.strip()
-        if part.startswith("organizationName="):
+        if part.startswith("organizationName=") or part.startswith("O="):
             org_name = part.split("=", 1)[1].strip()
-        elif part.startswith("commonName="):
+        elif part.startswith("commonName=") or part.startswith("CN="):
             cn_name = part.split("=", 1)[1].strip()
 
     # Try matching org name against known CAs
@@ -133,15 +133,26 @@ class CertificateMonitor:
         Returns:
             CertStatus with certificate details, or None on failure.
         """
-        context = _ssl.create_default_context()
-        # Set default socket timeout so getaddrinfo (DNS) also respects it;
-        # create_connection's timeout only covers the TCP connect phase.
         prev_timeout = socket.getdefaulttimeout()
         try:
             socket.setdefaulttimeout(timeout)
-            with socket.create_connection((domain, port), timeout=timeout) as sock:
-                with context.wrap_socket(sock, server_hostname=domain) as tls:
-                    cert = tls.getpeercert()
+            # Try with full certificate verification first
+            context = _ssl.create_default_context()
+            try:
+                with socket.create_connection((domain, port), timeout=timeout) as sock:
+                    with context.wrap_socket(sock, server_hostname=domain) as tls:
+                        cert = tls.getpeercert()
+            except _ssl.SSLCertVerificationError:
+                # Verification failed (e.g. private IP, missing CA bundle) —
+                # retry without verification to still extract certificate info.
+                context = _ssl.create_default_context()
+                context.check_hostname = False
+                context.verify_mode = _ssl.CERT_NONE
+                with socket.create_connection((domain, port), timeout=timeout) as sock:
+                    with context.wrap_socket(sock, server_hostname=domain) as tls:
+                        cert = tls.getpeercert(binary_form=True)
+                # Parse binary DER cert via openssl to get the same fields
+                return self._parse_der_cert(domain, cert)
         except (socket.error, _ssl.SSLError, OSError, socket.timeout):
             return None
         finally:
@@ -229,6 +240,71 @@ class CertificateMonitor:
         if len(san_domains) > 1:
             return "san"
         return "single"
+
+    @staticmethod
+    def _parse_der_cert(domain: str, der_bytes: bytes) -> Optional[CertStatus]:
+        """Parse a DER-encoded certificate via openssl (used for unverified certs)."""
+        import subprocess
+        try:
+            result = subprocess.run(
+                [
+                    "openssl", "x509", "-inform", "DER",
+                    "-noout", "-subject", "-issuer",
+                    "-startdate", "-enddate", "-serial",
+                    "-ext", "subjectAltName",
+                ],
+                input=der_bytes,
+                capture_output=True,
+                timeout=10,
+            )
+            output = result.stdout.decode("utf-8", errors="replace")
+            fields = {}
+            for line in output.strip().splitlines():
+                if "=" in line and not line.startswith(" "):
+                    key, _, value = line.partition("=")
+                    fields[key.strip().lower()] = value.strip()
+
+            not_before = datetime.datetime.strptime(
+                fields.get("notbefore", ""), "%b %d %H:%M:%S %Y %Z"
+            ).replace(tzinfo=datetime.timezone.utc)
+            not_after = datetime.datetime.strptime(
+                fields.get("notafter", ""), "%b %d %H:%M:%S %Y %Z"
+            ).replace(tzinfo=datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            days_remaining = (not_after - now).days
+
+            # Extract SAN domains from the extension output
+            san_domains = []
+            in_san = False
+            for line in output.strip().splitlines():
+                if "Subject Alternative Name" in line:
+                    in_san = True
+                    continue
+                if in_san:
+                    for part in line.split(","):
+                        part = part.strip()
+                        if part.startswith("DNS:"):
+                            san_domains.append(part[4:])
+                    in_san = False
+
+            cert_type = CertificateMonitor._classify_cert_type(san_domains)
+            issuer_str = fields.get("issuer", "")
+
+            return CertStatus(
+                domain=domain,
+                issuer=issuer_str,
+                subject=fields.get("subject", ""),
+                not_before=not_before,
+                not_after=not_after,
+                days_remaining=days_remaining,
+                is_expired=days_remaining < 0,
+                serial_number=fields.get("serial", ""),
+                san_domains=san_domains,
+                certificate_type=cert_type,
+                ca_name=extract_ca_name(issuer_str),
+            )
+        except Exception:
+            return None
 
     @staticmethod
     def _parse_peer_cert(domain: str, cert: dict) -> CertStatus:
