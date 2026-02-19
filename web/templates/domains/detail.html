@@ -148,6 +148,60 @@
     </div>
 </div>
 
+{# Certificate Chain & OCSP #}
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-link-45deg"></i> Certificate Chain & OCSP</div>
+    <div class="card-body">
+        <div class="d-flex gap-2 mb-3">
+            <form method="post" action="{{ url_for('domains.domain_chain_check', domain_id=domain.domain_id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-link-45deg"></i> Validate Chain</button>
+            </form>
+            <form method="post" action="{{ url_for('domains.domain_ocsp_check', domain_id=domain.domain_id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-shield-check"></i> Check OCSP</button>
+            </form>
+        </div>
+
+        {% if chain_result is defined and chain_result %}
+        <h6>Chain Validation:
+            <span class="badge bg-{{ 'success' if chain_result.is_valid else 'danger' }}">{{ chain_result.status|upper }}</span>
+            <small class="text-muted ms-2">{{ chain_result.chain_length }} certificate{{ 's' if chain_result.chain_length != 1 }}</small>
+        </h6>
+        {% if chain_result.error %}<p class="text-danger small">{{ chain_result.error }}</p>{% endif %}
+        {% if chain_result.chain %}
+        <table class="table table-sm mt-2">
+            <thead><tr><th>#</th><th>Subject</th><th>Issuer</th><th>Not After</th><th>CA</th></tr></thead>
+            <tbody>
+                {% for link in chain_result.chain %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><small>{{ link.subject }}</small></td>
+                    <td><small>{{ link.issuer }}</small></td>
+                    <td><small>{{ link.not_after }}</small></td>
+                    <td>{% if link.is_ca %}<span class="badge bg-info text-dark">CA</span>{% else %}No{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% endif %}
+
+        {% if ocsp_result is defined and ocsp_result %}
+        <h6 class="{% if chain_result is defined and chain_result %}mt-3{% endif %}">OCSP Status:
+            <span class="badge bg-{{ 'success' if ocsp_result.status == 'GOOD' else 'danger' if ocsp_result.status == 'REVOKED' else 'warning' }}">{{ ocsp_result.status }}</span>
+        </h6>
+        {% if ocsp_result.responder_url %}<p class="small text-muted mb-1">Responder: {{ ocsp_result.responder_url }}</p>{% endif %}
+        {% if ocsp_result.error %}<p class="text-danger small">{{ ocsp_result.error }}</p>{% endif %}
+        {% if ocsp_result.revocation_time %}<p class="text-danger small">Revoked at: {{ ocsp_result.revocation_time }} — {{ ocsp_result.revocation_reason }}</p>{% endif %}
+        {% endif %}
+
+        {% if not (chain_result is defined and chain_result) and not (ocsp_result is defined and ocsp_result) %}
+        <p class="text-muted small mb-0">Click the buttons above to check certificate chain validity and OCSP revocation status.</p>
+        {% endif %}
+    </div>
+</div>
+
 {# Registration / WHOIS #}
 <div class="row g-4">
     <div class="col-md-6">

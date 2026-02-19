@@ -12,6 +12,8 @@ from web.services import (
     get_licence_manager,
     get_domain_registry,
     get_dns_service,
+    get_azure_scan_store,
+    get_audit_log,
 )
 from tracker.product import Product, ProductCategory, LicenceType
 from tracker.alert_engine import AlertLevel, AlertType
@@ -118,13 +120,64 @@ def delete_product(product_id):
 def list_domains():
     registry = get_domain_registry()
     domains = registry.list_all()
+
     status_filter = request.args.get("status")
     if status_filter:
         try:
             domains = [d for d in domains if d.status == DomainStatus(status_filter)]
         except ValueError:
             return _error(f"Invalid status: {status_filter}")
+
+    ssl_status = request.args.get("ssl_status")
+    if ssl_status:
+        domains = [d for d in domains if d.ssl_status == ssl_status]
+
+    parent = request.args.get("parent")
+    if parent:
+        domains = [d for d in domains if d.parent_domain == parent]
+
+    ca = request.args.get("ca")
+    if ca:
+        domains = [d for d in domains if d.ssl_ca_name and ca.lower() in d.ssl_ca_name.lower()]
+
+    q = request.args.get("q", "").strip().lower()
+    if q:
+        domains = [d for d in domains if q in d.hostname.lower()
+                    or (d.ip_address and q in d.ip_address)
+                    or (d.ssl_ca_name and q in d.ssl_ca_name.lower())]
+
     return jsonify([d.to_dict() for d in domains])
+
+
+@bp.route("/domains/refresh-all", methods=["POST"])
+def api_refresh_all():
+    """Trigger background bulk refresh of all domains."""
+    from web.scheduler import scheduler
+    from web.routes.domains import _background_refresh_all
+
+    if not scheduler.running:
+        return _error("Scheduler not running", 503)
+
+    scheduler.add_job(
+        func=_background_refresh_all,
+        trigger="date",
+        id="api_bulk_refresh",
+        replace_existing=True,
+    )
+    domain_count = len(get_domain_registry().list_all())
+    return jsonify({"status": "started", "domain_count": domain_count})
+
+
+@bp.route("/domains/export")
+def api_export_domains():
+    """JSON export of all tracked domains."""
+    registry = get_domain_registry()
+    domains = registry.list_all()
+    return jsonify({
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "total": len(domains),
+        "domains": [d.to_dict() for d in domains],
+    })
 
 
 @bp.route("/domains/<domain_id>")
@@ -380,3 +433,86 @@ def validate_licence():
         "licence_type": result.licence_type,
         "error": result.error,
     })
+
+
+# ── Azure Resources ─────────────────────────────────────────────────
+
+@bp.route("/azure-resources")
+def api_azure_resources():
+    """Return cached Azure resource scan results."""
+    store = get_azure_scan_store()
+    cached = store.load()
+    if not cached:
+        return jsonify({"bindings": [], "scanned_at": None, "total": 0})
+
+    return jsonify({
+        "scanned_at": cached.get("scanned_at"),
+        "total": len(cached.get("bindings", [])),
+        "bindings": cached.get("bindings", []),
+    })
+
+
+@bp.route("/azure-resources/scan", methods=["POST"])
+def api_azure_scan():
+    """Trigger an Azure resource scan."""
+    from web.services import get_azure_resource_scanner
+    from sslcert.azure_resources import match_bindings_to_registry
+
+    scanner = get_azure_resource_scanner()
+    if not scanner.is_configured():
+        return _error("Azure scanner not configured (missing credentials)", 503)
+
+    bindings = scanner.scan_all()
+    registry = get_domain_registry()
+    bindings = match_bindings_to_registry(bindings, registry)
+
+    summary = {
+        "total": len(bindings),
+        "tracked": sum(1 for b in bindings if b.tracked),
+        "untracked": sum(1 for b in bindings if not b.tracked),
+        "ssl_enabled": sum(1 for b in bindings if b.ssl_enabled),
+        "by_type": {},
+    }
+    for b in bindings:
+        summary["by_type"][b.resource_type] = summary["by_type"].get(b.resource_type, 0) + 1
+
+    store = get_azure_scan_store()
+    store.save(bindings, summary)
+
+    untracked_hosts = [b.hostname for b in bindings if not b.tracked]
+    return jsonify({
+        "total": summary["total"],
+        "tracked": summary["tracked"],
+        "untracked": summary["untracked"],
+        "untracked_domains": untracked_hosts,
+    })
+
+
+# ── Audit Log ───────────────────────────────────────────────────────
+
+@bp.route("/audit")
+def api_audit():
+    """Return audit log entries."""
+    audit = get_audit_log()
+    entries = audit.list_all()
+
+    action_filter = request.args.get("action")
+    if action_filter:
+        entries = [e for e in entries if e.action == action_filter]
+
+    q = request.args.get("q", "").strip().lower()
+    if q:
+        entries = [e for e in entries if q in e.target.lower() or q in e.detail.lower()]
+
+    limit = request.args.get("limit", type=int, default=100)
+    entries = entries[:limit]
+
+    return jsonify([
+        {
+            "timestamp": e.timestamp,
+            "action": e.action,
+            "target": e.target,
+            "detail": e.detail,
+        }
+        for e in entries
+    ])

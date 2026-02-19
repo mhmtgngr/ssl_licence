@@ -4,6 +4,11 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4><i class="bi bi-globe2"></i> Domains</h4>
     <div>
+        <a href="{{ url_for('domains.export_domains') }}" class="btn btn-outline-secondary"><i class="bi bi-download"></i> Export CSV</a>
+        <form method="post" action="{{ url_for('domains.refresh_all') }}" style="display:inline" data-confirm="Refresh all {{ summary.total_domains }} domains in background?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-warning"><i class="bi bi-arrow-repeat"></i> Refresh All</button>
+        </form>
         <a href="{{ url_for('domains.azure_resources') }}" class="btn btn-outline-info"><i class="bi bi-cloud-check"></i> Azure Resources</a>
         <a href="{{ url_for('domains.import_domains') }}" class="btn btn-outline-success"><i class="bi bi-cloud-download"></i> Import</a>
         <a href="{{ url_for('domains.discover') }}" class="btn btn-outline-primary"><i class="bi bi-search"></i> Discover Subdomains</a>
@@ -86,9 +91,67 @@
         <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
         {% endif %}
     </div>
+    <div class="col-auto ms-auto">
+        <div class="btn-group btn-group-sm">
+            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter) }}" class="btn btn-outline-secondary {% if not group_by %}active{% endif %}">Flat</a>
+            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, group_by='parent') }}" class="btn btn-outline-secondary {% if group_by == 'parent' %}active{% endif %}">By Parent</a>
+            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, group_by='tag') }}" class="btn btn-outline-secondary {% if group_by == 'tag' %}active{% endif %}">By Tag</a>
+        </div>
+    </div>
 </form>
 
-{% if domains %}
+{% if grouped_domains %}
+{% for group_name, group_domains in grouped_domains.items() %}
+<div class="card mb-3">
+    <div class="card-header" data-bs-toggle="collapse" data-bs-target="#group-{{ loop.index }}" style="cursor:pointer;">
+        <strong>{{ group_name }}</strong>
+        <span class="badge bg-secondary ms-2">{{ group_domains|length }}</span>
+        <i class="bi bi-chevron-down float-end"></i>
+    </div>
+    <div id="group-{{ loop.index }}" class="collapse show">
+        <div class="card-body table-responsive p-0">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Hostname</th><th>Type</th><th>SSL Status</th><th>SSL Expiry</th><th>Days Left</th><th>CA</th><th>IP</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in group_domains %}
+                    <tr>
+                        <td><a href="{{ url_for('domains.detail', domain_id=d.domain_id) }}" class="fw-semibold text-decoration-none">{{ d.hostname }}</a></td>
+                        <td><span class="badge bg-light text-dark">{{ d.domain_type.value|title }}</span></td>
+                        <td>
+                            {% if d.ssl_status == 'ok' %}<span class="badge bg-success">OK</span>
+                            {% elif d.ssl_status == 'warning' %}<span class="badge bg-warning text-dark">WARNING</span>
+                            {% elif d.ssl_status == 'expired' %}<span class="badge bg-danger">EXPIRED</span>
+                            {% elif d.ssl_status == 'fail' %}<span class="badge bg-dark">FAIL</span>
+                            {% else %}<span class="badge bg-secondary">-</span>{% endif %}
+                        </td>
+                        <td>{{ d.ssl_expiry.strftime('%Y-%m-%d') if d.ssl_expiry else '-' }}</td>
+                        <td>
+                            {% if d.ssl_days_remaining is not none %}
+                            <span class="text-{{ 'danger' if d.ssl_status == 'expired' else 'warning' if d.ssl_status == 'warning' else 'success' }}">{{ d.ssl_days_remaining }}d</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td><small>{{ d.ssl_ca_name or '-' }}</small></td>
+                        <td><code>{{ d.ip_address or '-' }}</code></td>
+                        <td class="text-end" style="white-space:nowrap;">
+                            <form method="post" action="{{ url_for('domains.refresh_domain', domain_id=d.domain_id) }}" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% elif domains %}
 <div class="card">
     <div class="card-body table-responsive">
         <table class="table table-sm table-hover mb-0">

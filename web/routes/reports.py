@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from flask import Blueprint, render_template, request
-from web.services import get_registry, get_alert_engine, get_report_generator, _DATA_DIR
+from web.services import get_registry, get_alert_engine, get_report_generator, get_audit_log, _DATA_DIR
 from web.sort_utils import sort_items
 
 bp = Blueprint("reports", __name__)
@@ -89,6 +89,50 @@ def index():
         days=days,
         sort_field=sort_field,
         sort_order=sort_order,
+    )
+
+
+@bp.route("/export")
+def export_report():
+    """Export current report as CSV."""
+    import csv
+    import io
+    from flask import Response
+
+    registry = get_registry()
+    engine = get_alert_engine(registry)
+    report_gen = get_report_generator(registry, engine)
+    days = int(request.args.get("days", 180))
+    report = report_gen.expiry_report(days_ahead=days)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Category", "Name", "Vendor", "Version", "Days Left", "Expiry Date"])
+
+    for item in getattr(report, "licence_expiring", []):
+        writer.writerow([
+            "Licence Expiring",
+            item.get("name", getattr(item, "name", "")),
+            item.get("vendor", getattr(item, "vendor", "")),
+            item.get("version", getattr(item, "version", "")),
+            item.get("days_until_licence_expiry", ""),
+            str(item.get("licence_expiry", getattr(item, "licence_expiry", ""))),
+        ])
+    for item in getattr(report, "already_expired_licences", []):
+        writer.writerow([
+            "Already Expired",
+            item.get("name", getattr(item, "name", "")),
+            item.get("vendor", getattr(item, "vendor", "")),
+            item.get("version", getattr(item, "version", "")),
+            item.get("days_until_licence_expiry", ""),
+            str(item.get("licence_expiry", getattr(item, "licence_expiry", ""))),
+        ])
+
+    get_audit_log().log("export", "reports", f"Exported expiry report ({days} days)")
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=expiry_report.csv"},
     )
 
 

@@ -1,7 +1,7 @@
 """Alerts route — list alerts with severity filtering and acknowledgment."""
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from web.services import get_registry, get_alert_engine
+from web.services import get_registry, get_alert_engine, get_audit_log
 from tracker.alert_engine import AlertLevel, AlertType
 
 bp = Blueprint("alerts", __name__)
@@ -61,6 +61,7 @@ def acknowledge():
     registry = get_registry()
     engine = get_alert_engine(registry)
     if engine.acknowledge_alert(product_id, alert_type):
+        get_audit_log().log("alert_acknowledge", product_id, f"Type: {alert_type}")
         flash("Alert acknowledged.", "success")
     else:
         flash("Alert not found.", "danger")

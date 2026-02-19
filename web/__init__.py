@@ -38,6 +38,7 @@ def create_app():
     from web.routes.certificates import bp as certificates_bp
     from web.routes.domains import bp as domains_bp
     from web.routes.settings import bp as settings_bp
+    from web.routes.audit import bp as audit_bp
     from web.routes.api import bp as api_bp
 
     app.register_blueprint(dashboard_bp)
@@ -49,6 +50,7 @@ def create_app():
     app.register_blueprint(certificates_bp, url_prefix="/certificates")
     app.register_blueprint(domains_bp, url_prefix="/domains")
     app.register_blueprint(settings_bp, url_prefix="/settings")
+    app.register_blueprint(audit_bp, url_prefix="/audit")
     app.register_blueprint(api_bp, url_prefix="/api/v1")
     csrf.exempt(api_bp)
 
@@ -73,6 +75,7 @@ def create_app():
         from tracker.product import ProductCategory, LicenceType, SupportStatus
         from tracker.alert_engine import AlertLevel, AlertType
         from tracker.domain import DomainType, DomainStatus, CertificateType
+        from tracker.audit import AuditAction
         return {
             "ProductCategory": ProductCategory,
             "LicenceType": LicenceType,
@@ -82,6 +85,7 @@ def create_app():
             "DomainType": DomainType,
             "DomainStatus": DomainStatus,
             "CertificateType": CertificateType,
+            "AuditAction": AuditAction,
         }
 
     @app.context_processor

@@ -13,6 +13,9 @@ from web.services import (
     get_azure_resource_scanner,
     get_azure_scan_store,
     get_zone_transfer_service,
+    get_chain_validator,
+    get_ocsp_checker,
+    get_audit_log,
 )
 from tracker.domain import Domain, DomainStatus, DomainType, CertificateType
 
@@ -135,6 +138,23 @@ def list_domains():
         },
     )
 
+    # Grouping
+    group_by = request.args.get("group_by", "")
+    grouped_domains = {}
+    if group_by == "parent":
+        for d in domains:
+            key = d.parent_domain or "(No parent)"
+            grouped_domains.setdefault(key, []).append(d)
+        grouped_domains = dict(sorted(grouped_domains.items()))
+    elif group_by == "tag":
+        for d in domains:
+            if d.tags:
+                for tag in d.tags:
+                    grouped_domains.setdefault(tag, []).append(d)
+            else:
+                grouped_domains.setdefault("(Untagged)", []).append(d)
+        grouped_domains = dict(sorted(grouped_domains.items()))
+
     return render_template(
         "domains/list.html",
         domains=domains,
@@ -149,6 +169,8 @@ def list_domains():
         q=q,
         sort_field=sort_field,
         sort_order=sort_order,
+        group_by=group_by,
+        grouped_domains=grouped_domains,
     )
 
 
@@ -181,6 +203,7 @@ def add_domain():
         domain.last_checked = datetime.now(timezone.utc)
 
         registry.add(domain)
+        get_audit_log().log("domain_add", hostname, f"SSL: {domain.ssl_status or 'unknown'}")
         flash(f"Domain {hostname} added and checked.", "success")
         return redirect(url_for("domains.detail", domain_id=domain.domain_id))
 
@@ -203,6 +226,52 @@ def detail(domain_id):
         "domains/detail.html",
         domain=domain,
         azure_bindings=azure_bindings,
+    )
+
+
+@bp.route("/<domain_id>/chain-check", methods=["POST"])
+def domain_chain_check(domain_id):
+    """Run certificate chain validation for a domain."""
+    registry = get_domain_registry()
+    domain = registry.get(domain_id)
+    if not domain:
+        flash("Domain not found.", "danger")
+        return redirect(url_for("domains.list_domains"))
+
+    validator = get_chain_validator()
+    chain_result = validator.validate(domain.hostname)
+
+    store = get_azure_scan_store()
+    azure_bindings = store.get_bindings_for_hostname(domain.hostname)
+
+    return render_template(
+        "domains/detail.html",
+        domain=domain,
+        azure_bindings=azure_bindings,
+        chain_result=chain_result,
+    )
+
+
+@bp.route("/<domain_id>/ocsp-check", methods=["POST"])
+def domain_ocsp_check(domain_id):
+    """Run OCSP revocation check for a domain."""
+    registry = get_domain_registry()
+    domain = registry.get(domain_id)
+    if not domain:
+        flash("Domain not found.", "danger")
+        return redirect(url_for("domains.list_domains"))
+
+    checker = get_ocsp_checker()
+    ocsp_result = checker.check(domain.hostname)
+
+    store = get_azure_scan_store()
+    azure_bindings = store.get_bindings_for_hostname(domain.hostname)
+
+    return render_template(
+        "domains/detail.html",
+        domain=domain,
+        azure_bindings=azure_bindings,
+        ocsp_result=ocsp_result,
     )
 
 
@@ -233,6 +302,7 @@ def edit_domain(domain_id):
             warning_days=warning_days,
             status=status,
         )
+        get_audit_log().log("domain_edit", domain.hostname, f"Updated notes/tags/status")
         flash("Domain updated.", "success")
         return redirect(url_for("domains.detail", domain_id=domain_id))
 
@@ -242,7 +312,10 @@ def edit_domain(domain_id):
 @bp.route("/<domain_id>/delete", methods=["POST"])
 def delete_domain(domain_id):
     registry = get_domain_registry()
+    domain = registry.get(domain_id)
+    hostname = domain.hostname if domain else domain_id
     if registry.remove(domain_id):
+        get_audit_log().log("domain_delete", hostname)
         flash("Domain deleted.", "success")
     else:
         flash("Domain not found.", "danger")
@@ -291,8 +364,143 @@ def refresh_domain(domain_id):
         status=domain.status,
         last_checked=domain.last_checked,
     )
+    get_audit_log().log("domain_refresh", domain.hostname, f"SSL: {domain.ssl_status or 'unknown'}, Days: {domain.ssl_days_remaining}")
     flash(f"Refreshed {domain.hostname}.", "success")
     return redirect(url_for("domains.detail", domain_id=domain_id))
+
+
+@bp.route("/refresh-all", methods=["POST"])
+def refresh_all():
+    """Trigger background bulk refresh of all domains."""
+    from web.scheduler import scheduler
+
+    scheduler.add_job(
+        func=_background_refresh_all,
+        trigger="date",
+        id="bulk_refresh_now",
+        replace_existing=True,
+    )
+
+    from web.services import get_audit_log
+    audit = get_audit_log()
+    registry = get_domain_registry()
+    count = len(registry.list_all())
+    audit.log("domain_bulk_refresh", "all", f"Triggered for {count} domains")
+
+    flash(f"Bulk refresh started in background for {count} domains.", "info")
+    return redirect(url_for("domains.list_domains"))
+
+
+def _background_refresh_all():
+    """Run bulk SSL refresh for all domains (runs in scheduler thread)."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Running background bulk refresh...")
+
+    try:
+        registry = get_domain_registry()
+        monitor = get_certificate_monitor()
+        domains = registry.list_all()
+        refreshed = 0
+
+        for domain in domains:
+            try:
+                _update_domain_ssl(domain, monitor)
+                domain.last_checked = datetime.now(timezone.utc)
+                registry.update(
+                    domain.domain_id,
+                    ssl_issuer=domain.ssl_issuer,
+                    ssl_expiry=domain.ssl_expiry,
+                    ssl_days_remaining=domain.ssl_days_remaining,
+                    ssl_status=domain.ssl_status,
+                    ssl_certificate_type=domain.ssl_certificate_type,
+                    ssl_san_domains=domain.ssl_san_domains,
+                    ssl_ca_name=domain.ssl_ca_name,
+                    status=domain.status,
+                    last_checked=domain.last_checked,
+                )
+                refreshed += 1
+            except Exception:
+                logger.exception("Bulk refresh failed for %s", domain.hostname)
+
+        logger.info("Bulk refresh complete: %d/%d", refreshed, len(domains))
+    except Exception:
+        logger.exception("Background bulk refresh failed")
+
+
+@bp.route("/export")
+def export_domains():
+    """Export domains list as CSV."""
+    import csv
+    import io
+    from flask import Response
+
+    registry = get_domain_registry()
+    domains = registry.list_all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Hostname", "Parent Domain", "Type", "Status", "SSL Status",
+        "SSL Expiry", "SSL Days Remaining", "Certificate Type", "CA",
+        "IP Address", "Hosting Provider", "Registrar",
+        "Registration Expiry", "Registration Days Remaining",
+        "Tags", "Last Checked",
+    ])
+    for d in domains:
+        writer.writerow([
+            d.hostname, d.parent_domain, d.domain_type.value, d.status.value,
+            d.ssl_status, d.ssl_expiry.strftime("%Y-%m-%d") if d.ssl_expiry else "",
+            d.ssl_days_remaining if d.ssl_days_remaining is not None else "",
+            d.ssl_certificate_type.value, d.ssl_ca_name,
+            d.ip_address, d.hosting_provider, d.registrar,
+            d.registration_expiry.strftime("%Y-%m-%d") if d.registration_expiry else "",
+            d.registration_days_remaining if d.registration_days_remaining is not None else "",
+            "; ".join(d.tags),
+            d.last_checked.strftime("%Y-%m-%d %H:%M") if d.last_checked else "",
+        ])
+
+    get_audit_log().log("export", "domains", f"Exported {len(domains)} domains as CSV")
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=domains_export.csv"},
+    )
+
+
+@bp.route("/azure-resources/export")
+def export_azure_resources():
+    """Export Azure resource bindings as CSV."""
+    import csv
+    import io
+    from flask import Response
+
+    store = get_azure_scan_store()
+    bindings = store.load_bindings()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Hostname", "Resource Type", "Resource Name", "Resource Group",
+        "Subscription", "SSL Enabled", "SSL Thumbprint", "Tracked",
+    ])
+    for b in bindings:
+        writer.writerow([
+            b.get("hostname", ""),
+            b.get("resource_type", ""),
+            b.get("resource_name", ""),
+            b.get("resource_group", ""),
+            b.get("subscription_name", "") or b.get("subscription_id", "")[:8],
+            "Yes" if b.get("ssl_enabled") else "No",
+            b.get("ssl_thumbprint", ""),
+            "Yes" if b.get("tracked") else "No",
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=azure_resources_export.csv"},
+    )
 
 
 @bp.route("/discover", methods=["GET", "POST"])
@@ -372,6 +580,7 @@ def issue_letsencrypt(domain_id):
             le_auto_renew=auto_renew,
             le_challenge_type=challenge_type,
         )
+        get_audit_log().log("certificate_issue", domain.hostname, f"Let's Encrypt ({challenge_type})")
         flash(f"Let's Encrypt certificate issued for {domain.hostname}.", "success")
     else:
         flash(f"Let's Encrypt failed: {result.error}", "danger")
@@ -402,6 +611,7 @@ def renew_letsencrypt(domain_id):
             le_key_path=result.key_path,
             le_last_renewed=datetime.now(timezone.utc),
         )
+        get_audit_log().log("certificate_renew", domain.hostname, "Let's Encrypt renewal")
         flash(f"Certificate renewed for {domain.hostname}.", "success")
     else:
         flash(f"Renewal failed: {result.error}", "danger")
@@ -514,6 +724,7 @@ def import_azure():
             return redirect(url_for("domains.import_domains"))
 
         added = _import_selected(selected, "azure-dns")
+        get_audit_log().log("domain_import", "azure-dns", f"Imported {added} domain(s)")
         flash(f"Imported {added} domain(s) from Azure DNS.", "success")
         return redirect(url_for("domains.list_domains"))
 
@@ -573,6 +784,7 @@ def import_zone_transfer():
             return redirect(url_for("domains.import_domains"))
 
         added = _import_selected(selected, "zone-transfer")
+        get_audit_log().log("domain_import", "zone-transfer", f"Imported {added} domain(s)")
         flash(f"Imported {added} domain(s) via zone transfer.", "success")
         return redirect(url_for("domains.list_domains"))
 
@@ -679,6 +891,8 @@ def azure_resources_scan():
     # Persist results for caching
     store = get_azure_scan_store()
     store.save(bindings, summary)
+
+    get_audit_log().log("azure_scan", "manual", f"Found {summary['total']} bindings, {summary['untracked']} untracked")
 
     return render_template(
         "domains/azure_resources.html",

@@ -14,6 +14,7 @@ SSLCERT_BASE_DIR = str(PROJECT_ROOT / "sslcert")
 DOMAIN_REGISTRY_PATH = str(_DATA_DIR / "domains" / "registry.json")
 LETSENCRYPT_DIR = str(_DATA_DIR / "letsencrypt")
 AZURE_SCAN_PATH = _DATA_DIR / "azure_resources_scan.json"
+AUDIT_LOG_PATH = str(_DATA_DIR / "audit_log.json")
 
 
 def get_registry():
@@ -156,6 +157,11 @@ def get_notification_dispatcher():
     from tracker.notifications.dispatcher import NotificationDispatcher
     store = get_settings_store()
     return NotificationDispatcher(store)
+
+
+def get_audit_log():
+    from tracker.audit import AuditLog
+    return AuditLog(AUDIT_LOG_PATH)
 
 
 def get_cert_checks_store():

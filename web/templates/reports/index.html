@@ -19,6 +19,9 @@
     <li class="nav-item">
         <a class="nav-link" href="{{ url_for('reports.daily') }}"><i class="bi bi-calendar-check"></i> Daily Check</a>
     </li>
+    <li class="nav-item ms-auto">
+        <a class="nav-link text-secondary" href="{{ url_for('reports.export_report') }}"><i class="bi bi-download"></i> Export CSV</a>
+    </li>
 </ul>
 
 {% if report_type == 'expiry' %}

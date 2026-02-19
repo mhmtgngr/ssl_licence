@@ -1,7 +1,7 @@
 """Settings route — configure Azure DNS, ACME, and alert settings."""
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from web.services import get_settings_store, get_azure_dns_service
+from web.services import get_settings_store, get_azure_dns_service, get_audit_log
 
 bp = Blueprint("settings", __name__)
 
@@ -36,6 +36,7 @@ def save_azure_dns():
         "subscription_id": request.form.get("subscription_id", "").strip(),
         "resource_group": request.form.get("resource_group", "").strip(),
     })
+    get_audit_log().log("settings_change", "azure_dns", "Updated Azure DNS credentials")
     flash("Azure DNS settings saved.", "success")
     return redirect(url_for("settings.index"))
 
@@ -47,6 +48,7 @@ def save_acme():
         "email": request.form.get("email", "").strip(),
         "staging": request.form.get("staging") == "on",
     })
+    get_audit_log().log("settings_change", "acme", "Updated ACME/Let's Encrypt settings")
     flash("Let's Encrypt settings saved.", "success")
     return redirect(url_for("settings.index"))
 
@@ -62,6 +64,7 @@ def save_alerts():
         "ssl_expiry_enabled": request.form.get("ssl_expiry_enabled") == "on",
         "ssl_warning_days": warning_days,
     })
+    get_audit_log().log("settings_change", "alerts", f"Warning days: {warning_days}")
     flash("Alert settings saved.", "success")
     return redirect(url_for("settings.index"))
 
@@ -83,6 +86,7 @@ def save_notify_email():
         "to_addrs": request.form.get("smtp_to", "").strip(),
         "use_tls": request.form.get("smtp_tls") == "on",
     })
+    get_audit_log().log("settings_change", "notify_email", "Updated email notification settings")
     flash("Email notification settings saved.", "success")
     return redirect(url_for("settings.index"))
 
@@ -94,6 +98,7 @@ def save_notify_slack():
         "enabled": request.form.get("slack_enabled") == "on",
         "webhook_url": request.form.get("slack_webhook_url", "").strip(),
     })
+    get_audit_log().log("settings_change", "notify_slack", "Updated Slack notification settings")
     flash("Slack notification settings saved.", "success")
     return redirect(url_for("settings.index"))
 
@@ -106,6 +111,7 @@ def save_notify_webhook():
         "url": request.form.get("webhook_url", "").strip(),
         "headers": request.form.get("webhook_headers", "").strip(),
     })
+    get_audit_log().log("settings_change", "notify_webhook", "Updated webhook notification settings")
     flash("Webhook notification settings saved.", "success")
     return redirect(url_for("settings.index"))
 

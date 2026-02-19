@@ -50,6 +50,7 @@ SETTINGS_PATH = PROJECT_ROOT / "data" / "settings.json"
 
 # Scheduler
 SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
+AZURE_SCAN_INTERVAL_HOURS = int(os.environ.get("AZURE_SCAN_INTERVAL_HOURS", "24"))
 
 # Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")

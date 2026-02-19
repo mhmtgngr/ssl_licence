@@ -30,11 +30,23 @@ def init_scheduler(app):
         id="le_auto_renewal",
         replace_existing=True,
     )
+
+    from config.settings import AZURE_SCAN_INTERVAL_HOURS
+    scheduler.add_job(
+        func=_run_azure_scan,
+        trigger="interval",
+        hours=AZURE_SCAN_INTERVAL_HOURS,
+        id="azure_resource_scan",
+        replace_existing=True,
+    )
+
     scheduler.start()
     logger.info(
         "Scheduler started: health check every %d hour(s), "
-        "LE auto-renewal every 12 hour(s)",
+        "LE auto-renewal every 12 hour(s), "
+        "Azure scan every %d hour(s)",
         MONITOR_CHECK_INTERVAL_HOURS,
+        AZURE_SCAN_INTERVAL_HOURS,
     )
 
 
@@ -73,6 +85,12 @@ def _run_scheduled_checks():
                 logger.exception("Failed to check domain %s", domain.hostname)
 
         logger.info("Scheduled check complete: %d/%d domains checked", checked, len(domains))
+
+        try:
+            from web.services import get_audit_log
+            get_audit_log().log("scheduled_check", "daily", f"Checked {checked}/{len(domains)} domains")
+        except Exception:
+            logger.exception("Failed to log scheduled check to audit")
 
         # Generate and persist SSL / registration expiry alerts
         try:
@@ -156,5 +174,84 @@ def _run_auto_renewals():
 
         logger.info("Auto-renewal complete: %d/%d renewed", renewed, len(candidates))
 
+        if renewed > 0:
+            try:
+                from web.services import get_audit_log
+                get_audit_log().log("auto_renewal", "scheduled", f"Renewed {renewed}/{len(candidates)} certificates")
+            except Exception:
+                logger.exception("Failed to log auto-renewal to audit")
+
     except Exception:
         logger.exception("Let's Encrypt auto-renewal job failed")
+
+
+def _run_azure_scan():
+    """Periodically scan Azure resources for custom domain bindings."""
+    logger.info("Running scheduled Azure resource scan...")
+
+    try:
+        from web.services import (
+            get_azure_resource_scanner,
+            get_azure_scan_store,
+            get_domain_registry,
+            get_audit_log,
+        )
+        from sslcert.azure_resources import match_bindings_to_registry
+
+        scanner = get_azure_resource_scanner()
+        if not scanner.is_configured():
+            logger.info("Azure not configured, skipping scan")
+            return
+
+        bindings = scanner.scan_all()
+        registry = get_domain_registry()
+        bindings = match_bindings_to_registry(bindings, registry)
+
+        summary = {
+            "total": len(bindings),
+            "tracked": sum(1 for b in bindings if b.tracked),
+            "untracked": sum(1 for b in bindings if not b.tracked),
+            "ssl_enabled": sum(1 for b in bindings if b.ssl_enabled),
+            "by_type": {},
+        }
+        for b in bindings:
+            summary["by_type"][b.resource_type] = summary["by_type"].get(b.resource_type, 0) + 1
+
+        store = get_azure_scan_store()
+        store.save(bindings, summary)
+
+        audit = get_audit_log()
+        audit.log("azure_scan", "scheduled",
+                  f"{summary['total']} bindings, {summary['untracked']} untracked")
+
+        # Notify about untracked domains
+        untracked = [b for b in bindings if not b.tracked]
+        if untracked:
+            try:
+                from web.services import get_notification_dispatcher
+                from tracker.alert_engine import Alert, AlertLevel, AlertType
+                from datetime import datetime, timezone
+
+                alerts = []
+                for b in untracked[:20]:
+                    alerts.append(Alert(
+                        product_id=f"azure-{b.hostname}",
+                        product_name=b.hostname,
+                        vendor=b.resource_type,
+                        alert_type=AlertType.SSL_EXPIRY,
+                        alert_level=AlertLevel.MEDIUM,
+                        days_remaining=0,
+                        target_date=datetime.now(timezone.utc),
+                        source_type="azure",
+                        message=f"Untracked domain {b.hostname} on {b.resource_type} {b.resource_name}",
+                    ))
+                dispatcher = get_notification_dispatcher()
+                dispatcher.dispatch(alerts, only_unacknowledged=False)
+            except Exception:
+                logger.exception("Failed to dispatch Azure untracked alerts")
+
+        logger.info("Azure scan complete: %d bindings (%d untracked)",
+                    summary["total"], summary["untracked"])
+
+    except Exception:
+        logger.exception("Azure resource scan job failed")
