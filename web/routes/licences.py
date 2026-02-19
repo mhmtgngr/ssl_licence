@@ -11,10 +11,28 @@ def list_licences():
     mgr = get_licence_manager()
     licences = mgr.list_all()
     active_count = len(mgr.list_active())
+
+    from flask import request
+    from web.sort_utils import sort_items
+    licences, sort_field, sort_order = sort_items(
+        licences,
+        request.args.get("sort"),
+        request.args.get("order"),
+        {
+            "type": lambda l: (l.get("licence_type") or "").lower(),
+            "issued_to": lambda l: (l.get("issued_to") or "").lower(),
+            "issued_at": lambda l: l.get("issued_at") or "",
+            "expires_at": lambda l: l.get("expires_at") or "9999",
+            "status": lambda l: (1 if l.get("revoked") else 0),
+        },
+    )
+
     return render_template(
         "licences/list.html",
         licences=licences,
         active_count=active_count,
+        sort_field=sort_field,
+        sort_order=sort_order,
     )
 
 

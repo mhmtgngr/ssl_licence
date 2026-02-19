@@ -14,14 +14,15 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
+                {% from "macros/sort_header.html" import sort_th %}
                 <thead>
                     <tr>
-                        <th>Domain</th>
-                        <th>Status</th>
-                        <th>Issuer</th>
-                        <th>Expiry</th>
-                        <th>Days Remaining</th>
-                        <th>Checked At</th>
+                        {{ sort_th("Domain", "domain", sort_field, sort_order) }}
+                        {{ sort_th("Status", "status", sort_field, sort_order) }}
+                        {{ sort_th("Issuer", "issuer", sort_field, sort_order) }}
+                        {{ sort_th("Expiry", "expiry", sort_field, sort_order) }}
+                        {{ sort_th("Days Remaining", "days", sort_field, sort_order) }}
+                        {{ sort_th("Checked At", "checked", sort_field, sort_order) }}
                     </tr>
                 </thead>
                 <tbody>

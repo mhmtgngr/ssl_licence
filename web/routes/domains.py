@@ -113,6 +113,26 @@ def list_domains():
     ca_names = sorted(set(d.ssl_ca_name for d in all_domains if d.ssl_ca_name))
     summary = registry.summary()
 
+    from web.sort_utils import sort_items
+    domains, sort_field, sort_order = sort_items(
+        domains,
+        request.args.get("sort"),
+        request.args.get("order"),
+        {
+            "hostname": lambda d: (d.hostname or "").lower(),
+            "type": lambda d: d.domain_type.value,
+            "cert_type": lambda d: d.ssl_certificate_type.value,
+            "ca": lambda d: (d.ssl_ca_name or "").lower(),
+            "ip": lambda d: d.ip_address or "",
+            "ssl_status": lambda d: d.ssl_status or "",
+            "ssl_expiry": lambda d: d.ssl_expiry or datetime.min.replace(tzinfo=timezone.utc),
+            "days_left": lambda d: d.ssl_days_remaining if d.ssl_days_remaining is not None else 999999,
+            "domain_expiry": lambda d: d.registration_expiry or datetime.min.replace(tzinfo=timezone.utc),
+            "hosting": lambda d: (d.hosting_provider or "").lower(),
+            "last_checked": lambda d: d.last_checked or datetime.min.replace(tzinfo=timezone.utc),
+        },
+    )
+
     return render_template(
         "domains/list.html",
         domains=domains,
@@ -125,6 +145,8 @@ def list_domains():
         cert_type_filter=cert_type_filter,
         ca_filter=ca_filter,
         q=q,
+        sort_field=sort_field,
+        sort_order=sort_order,
     )
 
 

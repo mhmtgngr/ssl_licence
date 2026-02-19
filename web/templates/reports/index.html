@@ -65,7 +65,8 @@
     <div class="card-header">Licences Expiring (next {{ days }} days)</div>
     <div class="card-body table-responsive">
         <table class="table table-sm mb-0">
-            <thead><tr><th>Name</th><th>Vendor</th><th>Version</th><th>Days Left</th><th>Expiry</th></tr></thead>
+            {% from "macros/sort_header.html" import sort_th %}
+            <thead><tr>{{ sort_th("Name", "name", sort_field, sort_order) }}{{ sort_th("Vendor", "vendor", sort_field, sort_order) }}{{ sort_th("Version", "version", sort_field, sort_order) }}{{ sort_th("Days Left", "days_left", sort_field, sort_order) }}{{ sort_th("Expiry", "expiry", sort_field, sort_order) }}</tr></thead>
             <tbody>
                 {% for p in report.licence_expiring %}
                 <tr><td>{{ p.name }}</td><td>{{ p.vendor }}</td><td>{{ p.version }}</td><td>{{ p.days_until_licence_expiry }}</td><td>{{ p.licence_expiry[:10] if p.licence_expiry else '-' }}</td></tr>
@@ -81,7 +82,8 @@
     <div class="card-header text-bg-danger">Already Expired Licences</div>
     <div class="card-body table-responsive">
         <table class="table table-sm mb-0">
-            <thead><tr><th>Name</th><th>Vendor</th><th>Version</th><th>Expired</th></tr></thead>
+            {% from "macros/sort_header.html" import sort_th %}
+            <thead><tr>{{ sort_th("Name", "name", sort_field, sort_order) }}{{ sort_th("Vendor", "vendor", sort_field, sort_order) }}{{ sort_th("Version", "version", sort_field, sort_order) }}{{ sort_th("Expired", "expiry", sort_field, sort_order) }}</tr></thead>
             <tbody>
                 {% for p in report.already_expired_licences %}
                 <tr><td>{{ p.name }}</td><td>{{ p.vendor }}</td><td>{{ p.version }}</td><td>{{ p.licence_expiry[:10] if p.licence_expiry else '-' }}</td></tr>
@@ -105,7 +107,8 @@
     <div class="card-header">Compliance Issues ({{ report.total_issues }})</div>
     <div class="card-body table-responsive">
         <table class="table table-sm mb-0">
-            <thead><tr><th>Severity</th><th>Product</th><th>Vendor</th><th>Issue</th><th>Detail</th></tr></thead>
+            {% from "macros/sort_header.html" import sort_th %}
+            <thead><tr>{{ sort_th("Severity", "severity", sort_field, sort_order) }}{{ sort_th("Product", "product", sort_field, sort_order) }}{{ sort_th("Vendor", "vendor", sort_field, sort_order) }}{{ sort_th("Issue", "issue", sort_field, sort_order) }}<th>Detail</th></tr></thead>
             <tbody>
                 {% for i in report.issues %}
                 <tr>
@@ -143,7 +146,8 @@
     <div class="card-header">Cost by Vendor</div>
     <div class="card-body table-responsive">
         <table class="table table-sm mb-0">
-            <thead><tr><th>Vendor</th><th>Products</th><th>Annual Cost</th></tr></thead>
+            {% from "macros/sort_header.html" import sort_th %}
+            <thead><tr>{{ sort_th("Vendor", "vendor", sort_field, sort_order) }}{{ sort_th("Products", "products", sort_field, sort_order) }}{{ sort_th("Annual Cost", "cost", sort_field, sort_order) }}</tr></thead>
             <tbody>
                 {% for vendor, data in report.by_vendor.items() %}
                 <tr><td>{{ vendor }}</td><td>{{ data.count }}</td><td>${{ "{:,.0f}".format(data.cost) }}</td></tr>

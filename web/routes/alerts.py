@@ -25,11 +25,28 @@ def list_alerts():
     )
     summary = engine.get_dashboard_summary()
 
+    from web.sort_utils import sort_items
+    alerts, sort_field, sort_order = sort_items(
+        alerts,
+        request.args.get("sort"),
+        request.args.get("order"),
+        {
+            "level": lambda a: a.alert_level.value,
+            "product": lambda a: (a.product_name or "").lower(),
+            "vendor": lambda a: (a.vendor or "").lower(),
+            "type": lambda a: a.alert_type.value,
+            "days": lambda a: a.days_remaining if a.days_remaining is not None else 999999,
+            "date": lambda a: a.target_date,
+        },
+    )
+
     return render_template(
         "alerts/list.html",
         alerts=alerts,
         summary=summary,
         filters={"level": level_filter, "type": type_filter, "vendor": vendor_filter},
+        sort_field=sort_field,
+        sort_order=sort_order,
     )
 
 

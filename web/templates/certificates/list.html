@@ -14,7 +14,8 @@
         {% if certs %}
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
-                <thead><tr><th>Name</th><th>Path</th><th>Expiry</th></tr></thead>
+                {% from "macros/sort_header.html" import sort_th %}
+                <thead><tr>{{ sort_th("Name", "name", sort_field, sort_order) }}{{ sort_th("Path", "path", sort_field, sort_order) }}{{ sort_th("Expiry", "expiry", sort_field, sort_order) }}</tr></thead>
                 <tbody>
                     {% for cert in certs %}
                     <tr>

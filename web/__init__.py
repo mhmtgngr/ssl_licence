@@ -84,6 +84,20 @@ def create_app():
             "CertificateType": CertificateType,
         }
 
+    @app.context_processor
+    def inject_sort_url():
+        from urllib.parse import urlencode
+
+        def sort_url(field):
+            args = dict(request.args)
+            if args.get("sort") == field and args.get("order", "asc") == "asc":
+                args["order"] = "desc"
+            else:
+                args["order"] = "asc"
+            args["sort"] = field
+            return "?" + urlencode(args)
+        return {"sort_url": sort_url}
+
     # Start scheduler (only in non-testing mode)
     if not app.config.get("TESTING"):
         from web.scheduler import init_scheduler

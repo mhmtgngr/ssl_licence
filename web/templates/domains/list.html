@@ -91,19 +91,20 @@
 <div class="card">
     <div class="card-body table-responsive">
         <table class="table table-sm table-hover mb-0">
+            {% from "macros/sort_header.html" import sort_th %}
             <thead>
                 <tr>
-                    <th>Hostname</th>
-                    <th>Type</th>
-                    <th>Cert Type</th>
-                    <th>CA</th>
-                    <th>IP Address</th>
-                    <th>SSL Status</th>
-                    <th>SSL Expiry</th>
-                    <th>Days Left</th>
-                    <th>Domain Expiry</th>
-                    <th>Hosting</th>
-                    <th>Last Checked</th>
+                    {{ sort_th("Hostname", "hostname", sort_field, sort_order) }}
+                    {{ sort_th("Type", "type", sort_field, sort_order) }}
+                    {{ sort_th("Cert Type", "cert_type", sort_field, sort_order) }}
+                    {{ sort_th("CA", "ca", sort_field, sort_order) }}
+                    {{ sort_th("IP Address", "ip", sort_field, sort_order) }}
+                    {{ sort_th("SSL Status", "ssl_status", sort_field, sort_order) }}
+                    {{ sort_th("SSL Expiry", "ssl_expiry", sort_field, sort_order) }}
+                    {{ sort_th("Days Left", "days_left", sort_field, sort_order) }}
+                    {{ sort_th("Domain Expiry", "domain_expiry", sort_field, sort_order) }}
+                    {{ sort_th("Hosting", "hosting", sort_field, sort_order) }}
+                    {{ sort_th("Last Checked", "last_checked", sort_field, sort_order) }}
                     <th></th>
                 </tr>
             </thead>

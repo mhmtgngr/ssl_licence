@@ -231,7 +231,8 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
-                <thead><tr><th>Date</th><th>Certs</th><th>Domains</th><th>Licences</th><th>Alerts</th><th>Status</th></tr></thead>
+                {% from "macros/sort_header.html" import sort_th %}
+                <thead><tr>{{ sort_th("Date", "date", sort_field, sort_order) }}{{ sort_th("Certs", "certs", sort_field, sort_order) }}{{ sort_th("Domains", "domains", sort_field, sort_order) }}{{ sort_th("Licences", "licences", sort_field, sort_order) }}{{ sort_th("Alerts", "alerts", sort_field, sort_order) }}<th>Status</th></tr></thead>
                 <tbody>
                     {% for r in reports %}
                     <tr onclick="location.href='?date={{ r._file }}'" style="cursor:pointer">

@@ -1,0 +1,26 @@
+{#- Sortable table header macro.
+
+    Usage:
+        {% from "macros/sort_header.html" import sort_th %}
+        <thead><tr>
+            {{ sort_th("Name", "name", sort_field, sort_order) }}
+            {{ sort_th("Cost", "cost", sort_field, sort_order) }}
+            <th></th>  {# non-sortable Actions column #}
+        </tr></thead>
+-#}
+{% macro sort_th(label, field, current_sort, current_order, extra_class='') -%}
+<th class="{{ extra_class }}">
+    <a href="{{ sort_url(field) }}" class="text-decoration-none text-reset d-inline-flex align-items-center gap-1" style="white-space:nowrap;">
+        {{ label }}
+        {%- if current_sort == field -%}
+            {%- if current_order == 'desc' -%}
+            <i class="bi bi-caret-down-fill small"></i>
+            {%- else -%}
+            <i class="bi bi-caret-up-fill small"></i>
+            {%- endif -%}
+        {%- else -%}
+            <i class="bi bi-chevron-expand small text-muted opacity-50"></i>
+        {%- endif -%}
+    </a>
+</th>
+{%- endmacro %}

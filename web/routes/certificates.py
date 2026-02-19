@@ -18,7 +18,23 @@ bp = Blueprint("certificates", __name__)
 def list_certs():
     mgr = get_certificate_manager()
     certs = mgr.list_certificates()
-    return render_template("certificates/list.html", certs=certs)
+
+    from flask import request as req
+    from web.sort_utils import sort_items
+    certs, sort_field, sort_order = sort_items(
+        certs,
+        req.args.get("sort"),
+        req.args.get("order"),
+        {
+            "name": lambda c: (c.name or "").lower(),
+            "path": lambda c: (c.path or "").lower(),
+            "expiry": lambda c: str(c.expiry or ""),
+        },
+    )
+    return render_template(
+        "certificates/list.html", certs=certs,
+        sort_field=sort_field, sort_order=sort_order,
+    )
 
 
 @bp.route("/check", methods=["GET", "POST"])
@@ -69,7 +85,26 @@ def check_remote():
 def check_history():
     store = get_cert_checks_store()
     checks = store.list_all()
-    return render_template("certificates/history.html", checks=checks)
+
+    from flask import request as req
+    from web.sort_utils import sort_items
+    checks, sort_field, sort_order = sort_items(
+        checks,
+        req.args.get("sort"),
+        req.args.get("order"),
+        {
+            "domain": lambda c: (c.get("domain") or "").lower(),
+            "status": lambda c: c.get("status") or "",
+            "issuer": lambda c: (c.get("issuer") or "").lower(),
+            "expiry": lambda c: c.get("not_after") or "",
+            "days": lambda c: c.get("days_remaining") if c.get("days_remaining") is not None else 999999,
+            "checked": lambda c: c.get("checked_at") or "",
+        },
+    )
+    return render_template(
+        "certificates/history.html", checks=checks,
+        sort_field=sort_field, sort_order=sort_order,
+    )
 
 
 @bp.route("/history/clear", methods=["POST"])

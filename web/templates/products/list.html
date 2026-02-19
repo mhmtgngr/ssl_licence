@@ -54,16 +54,17 @@
         {% if products %}
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
+                {% from "macros/sort_header.html" import sort_th %}
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Vendor</th>
-                        <th>Version</th>
-                        <th>Category</th>
-                        <th>Status</th>
-                        <th>Expiry</th>
-                        <th>Cost</th>
-                        <th>Env</th>
+                        {{ sort_th("Name", "name", sort_field, sort_order) }}
+                        {{ sort_th("Vendor", "vendor", sort_field, sort_order) }}
+                        {{ sort_th("Version", "version", sort_field, sort_order) }}
+                        {{ sort_th("Category", "category", sort_field, sort_order) }}
+                        {{ sort_th("Status", "status", sort_field, sort_order) }}
+                        {{ sort_th("Expiry", "expiry", sort_field, sort_order) }}
+                        {{ sort_th("Cost", "cost", sort_field, sort_order) }}
+                        {{ sort_th("Env", "environment", sort_field, sort_order) }}
                         <th></th>
                     </tr>
                 </thead>

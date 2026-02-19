@@ -14,8 +14,9 @@
         {% if licences %}
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
+                {% from "macros/sort_header.html" import sort_th %}
                 <thead>
-                    <tr><th>Key</th><th>Type</th><th>Issued To</th><th>Issued At</th><th>Expires At</th><th>Status</th><th></th></tr>
+                    <tr><th>Key</th>{{ sort_th("Type", "type", sort_field, sort_order) }}{{ sort_th("Issued To", "issued_to", sort_field, sort_order) }}{{ sort_th("Issued At", "issued_at", sort_field, sort_order) }}{{ sort_th("Expires At", "expires_at", sort_field, sort_order) }}{{ sort_th("Status", "status", sort_field, sort_order) }}<th></th></tr>
                 </thead>
                 <tbody>
                     {% for lic in licences %}

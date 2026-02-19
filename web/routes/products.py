@@ -51,6 +51,23 @@ def list_products():
     vendors = sorted(set(p.vendor for p in all_products))
     environments = sorted(set(p.environment for p in all_products))
 
+    from web.sort_utils import sort_items
+    products, sort_field, sort_order = sort_items(
+        products,
+        request.args.get("sort"),
+        request.args.get("order"),
+        {
+            "name": lambda p: (p.name or "").lower(),
+            "vendor": lambda p: (p.vendor or "").lower(),
+            "version": lambda p: (p.version or "").lower(),
+            "category": lambda p: p.category.value,
+            "status": lambda p: p.support_status().value,
+            "expiry": lambda p: p.days_until_licence_expiry() if p.days_until_licence_expiry() is not None else 999999,
+            "cost": lambda p: p.annual_cost or 0,
+            "environment": lambda p: (p.environment or "").lower(),
+        },
+    )
+
     return render_template(
         "products/list.html",
         products=products,
@@ -58,6 +75,8 @@ def list_products():
         environments=environments,
         filters={"category": category, "vendor": vendor, "status": status,
                  "environment": environment, "q": q},
+        sort_field=sort_field,
+        sort_order=sort_order,
     )
 
 

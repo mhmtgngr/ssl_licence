@@ -33,14 +33,15 @@
         {% if alerts %}
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
+                {% from "macros/sort_header.html" import sort_th %}
                 <thead>
                     <tr>
-                        <th>Level</th>
-                        <th>Product</th>
-                        <th>Vendor</th>
-                        <th>Type</th>
-                        <th>Days Remaining</th>
-                        <th>Target Date</th>
+                        {{ sort_th("Level", "level", sort_field, sort_order) }}
+                        {{ sort_th("Product", "product", sort_field, sort_order) }}
+                        {{ sort_th("Vendor", "vendor", sort_field, sort_order) }}
+                        {{ sort_th("Type", "type", sort_field, sort_order) }}
+                        {{ sort_th("Days Remaining", "days", sort_field, sort_order) }}
+                        {{ sort_th("Target Date", "date", sort_field, sort_order) }}
                         <th>Message</th>
                         <th></th>
                     </tr>
