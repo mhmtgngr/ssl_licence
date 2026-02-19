@@ -33,6 +33,8 @@ from tracker.registry import ProductRegistry
 from tracker.alert_engine import AlertEngine
 from tracker.domain import DomainStatus
 from tracker.domain_registry import DomainRegistry
+from web.settings_store import SettingsStore
+from tracker.notifications.dispatcher import NotificationDispatcher
 
 DATA_DIR = PROJECT_ROOT / "data"
 CERT_CHECKS_PATH = DATA_DIR / "cert_checks.json"
@@ -41,6 +43,7 @@ REGISTRY_PATH = str(DATA_DIR / "products" / "registry.json")
 DOMAIN_REGISTRY_PATH = str(DATA_DIR / "domains" / "registry.json")
 LICENCE_STORAGE = str(DATA_DIR / "licences.json")
 ALERTS_HISTORY = str(DATA_DIR / "alerts_history.json")
+SETTINGS_PATH = str(DATA_DIR / "settings.json")
 
 
 def get_monitored_domains() -> list[str]:
@@ -393,6 +396,27 @@ def main():
     DAILY_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = DAILY_REPORTS_DIR / f"{date_str}.json"
     report_path.write_text(json.dumps(report, indent=2, default=str))
+
+    # 6. Send notifications for unacknowledged alerts
+    try:
+        store = SettingsStore(SETTINGS_PATH)
+        dispatcher = NotificationDispatcher(store)
+        domain_registry = DomainRegistry(DOMAIN_REGISTRY_PATH)
+        engine = AlertEngine(
+            ProductRegistry(REGISTRY_PATH),
+            history_path=ALERTS_HISTORY,
+            domain_registry=domain_registry,
+        )
+        engine.evaluate_all()
+        all_alert_objects = engine.get_unacknowledged()
+        if all_alert_objects:
+            results = dispatcher.dispatch(all_alert_objects, only_unacknowledged=False)
+            print(f"\n[Notifications] Dispatched to {len(results)} channel(s): "
+                  + ", ".join(f"{k}={'OK' if v else 'FAIL'}" for k, v in results.items()))
+        else:
+            print("\n[Notifications] No unacknowledged alerts to dispatch.")
+    except Exception as e:
+        print(f"\n[Notifications] Dispatch failed: {e}")
 
     # Print summary
     total_issues = len(cert_issues) + len(lic_issues) + len(domain_issues) + len(product_alerts) + len(le_failed)

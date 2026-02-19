@@ -19,6 +19,21 @@
             <i class="bi bi-bell"></i> Alert Settings
         </button>
     </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#notify-email" type="button" role="tab">
+            <i class="bi bi-envelope"></i> Email
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#notify-slack" type="button" role="tab">
+            <i class="bi bi-slack"></i> Slack
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#notify-webhook" type="button" role="tab">
+            <i class="bi bi-link-45deg"></i> Webhook
+        </button>
+    </li>
 </ul>
 
 <div class="tab-content">
@@ -129,6 +144,147 @@
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Notification Tab -->
+    <div class="tab-pane fade" id="notify-email" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-envelope"></i> Email Notifications (SMTP)</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Send alert digests via email. Supports SMTP with TLS.</p>
+                <form method="post" action="{{ url_for('settings.save_notify_email') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="email_enabled" name="email_enabled"
+                               {% if notify_email.get('enabled') %}checked{% endif %}>
+                        <label class="form-check-label" for="email_enabled">Enable email notifications</label>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="smtp_host" class="form-label">SMTP Host</label>
+                            <input type="text" class="form-control" id="smtp_host" name="smtp_host"
+                                   value="{{ notify_email.get('smtp_host', '') }}" placeholder="smtp.example.com">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="smtp_port" class="form-label">SMTP Port</label>
+                            <input type="number" class="form-control" id="smtp_port" name="smtp_port"
+                                   value="{{ notify_email.get('smtp_port', 587) }}" min="1" max="65535">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="smtp_username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="smtp_username" name="smtp_username"
+                                   value="{{ notify_email.get('username', '') }}" placeholder="user@example.com">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="smtp_password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="smtp_password" name="smtp_password"
+                                   value="{{ notify_email.get('password', '') }}" placeholder="Enter SMTP password">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="smtp_from" class="form-label">From Address</label>
+                            <input type="email" class="form-control" id="smtp_from" name="smtp_from"
+                                   value="{{ notify_email.get('from_addr', '') }}" placeholder="alerts@example.com">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="smtp_to" class="form-label">To Addresses <small class="text-muted">(comma-separated)</small></label>
+                            <input type="text" class="form-control" id="smtp_to" name="smtp_to"
+                                   value="{{ notify_email.get('to_addrs', '') }}" placeholder="admin@example.com, ops@example.com">
+                        </div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="smtp_tls" name="smtp_tls"
+                               {% if notify_email.get('use_tls', true) %}checked{% endif %}>
+                        <label class="form-check-label" for="smtp_tls">Use TLS (STARTTLS)</label>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                        <button type="submit" class="btn btn-outline-secondary"
+                                formaction="{{ url_for('settings.test_notify', channel='email') }}">
+                            <i class="bi bi-send"></i> Send Test
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slack Notification Tab -->
+    <div class="tab-pane fade" id="notify-slack" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-slack"></i> Slack Notifications</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Post alert summaries to a Slack channel via incoming webhook.</p>
+                <form method="post" action="{{ url_for('settings.save_notify_slack') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="slack_enabled" name="slack_enabled"
+                               {% if notify_slack.get('enabled') %}checked{% endif %}>
+                        <label class="form-check-label" for="slack_enabled">Enable Slack notifications</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="slack_webhook_url" class="form-label">Webhook URL</label>
+                        <input type="url" class="form-control" id="slack_webhook_url" name="slack_webhook_url"
+                               value="{{ notify_slack.get('webhook_url', '') }}"
+                               placeholder="https://hooks.slack.com/services/T.../B.../xxx">
+                        <div class="form-text">Create an incoming webhook in your Slack workspace settings.</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                        <button type="submit" class="btn btn-outline-secondary"
+                                formaction="{{ url_for('settings.test_notify', channel='slack') }}">
+                            <i class="bi bi-send"></i> Send Test
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Webhook Notification Tab -->
+    <div class="tab-pane fade" id="notify-webhook" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-link-45deg"></i> Webhook Notifications</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Send alert data as JSON to a generic HTTP endpoint (POST).</p>
+                <form method="post" action="{{ url_for('settings.save_notify_webhook') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="webhook_enabled" name="webhook_enabled"
+                               {% if notify_webhook.get('enabled') %}checked{% endif %}>
+                        <label class="form-check-label" for="webhook_enabled">Enable webhook notifications</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="webhook_url" class="form-label">Webhook URL</label>
+                        <input type="url" class="form-control" id="webhook_url" name="webhook_url"
+                               value="{{ notify_webhook.get('url', '') }}"
+                               placeholder="https://example.com/api/alerts">
+                    </div>
+                    <div class="mb-3">
+                        <label for="webhook_headers" class="form-label">Custom Headers <small class="text-muted">(JSON, optional)</small></label>
+                        <textarea class="form-control" id="webhook_headers" name="webhook_headers" rows="3"
+                                  placeholder='{"Authorization": "Bearer your-token"}'>{{ notify_webhook.get('headers', '') }}</textarea>
+                        <div class="form-text">Optional JSON object of HTTP headers to include with each request.</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save</button>
+                        <button type="submit" class="btn btn-outline-secondary"
+                                formaction="{{ url_for('settings.test_notify', channel='webhook') }}">
+                            <i class="bi bi-send"></i> Send Test
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

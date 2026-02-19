@@ -134,6 +134,13 @@ def get_ocsp_checker():
     return OCSPChecker()
 
 
+def get_notification_dispatcher():
+    """Return a NotificationDispatcher configured from the settings store."""
+    from tracker.notifications.dispatcher import NotificationDispatcher
+    store = get_settings_store()
+    return NotificationDispatcher(store)
+
+
 def get_cert_checks_store():
     """Return the CertCheckStore for persisting certificate check results."""
     return CertCheckStore(CERT_CHECKS_PATH)

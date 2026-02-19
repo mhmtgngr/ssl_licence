@@ -12,11 +12,17 @@ def index():
     azure_dns = store.get_section("azure_dns")
     acme = store.get_section("acme")
     alerts = store.get_section("alerts")
+    notify_email = store.get_section("notify_email")
+    notify_slack = store.get_section("notify_slack")
+    notify_webhook = store.get_section("notify_webhook")
     return render_template(
         "settings/index.html",
         azure_dns=azure_dns,
         acme=acme,
         alerts=alerts,
+        notify_email=notify_email,
+        notify_slack=notify_slack,
+        notify_webhook=notify_webhook,
     )
 
 
@@ -57,6 +63,59 @@ def save_alerts():
         "ssl_warning_days": warning_days,
     })
     flash("Alert settings saved.", "success")
+    return redirect(url_for("settings.index"))
+
+
+@bp.route("/notify-email", methods=["POST"])
+def save_notify_email():
+    store = get_settings_store()
+    try:
+        smtp_port = int(request.form.get("smtp_port", "587"))
+    except ValueError:
+        smtp_port = 587
+    store.set_section("notify_email", {
+        "enabled": request.form.get("email_enabled") == "on",
+        "smtp_host": request.form.get("smtp_host", "").strip(),
+        "smtp_port": smtp_port,
+        "username": request.form.get("smtp_username", "").strip(),
+        "password": request.form.get("smtp_password", "").strip(),
+        "from_addr": request.form.get("smtp_from", "").strip(),
+        "to_addrs": request.form.get("smtp_to", "").strip(),
+        "use_tls": request.form.get("smtp_tls") == "on",
+    })
+    flash("Email notification settings saved.", "success")
+    return redirect(url_for("settings.index"))
+
+
+@bp.route("/notify-slack", methods=["POST"])
+def save_notify_slack():
+    store = get_settings_store()
+    store.set_section("notify_slack", {
+        "enabled": request.form.get("slack_enabled") == "on",
+        "webhook_url": request.form.get("slack_webhook_url", "").strip(),
+    })
+    flash("Slack notification settings saved.", "success")
+    return redirect(url_for("settings.index"))
+
+
+@bp.route("/notify-webhook", methods=["POST"])
+def save_notify_webhook():
+    store = get_settings_store()
+    store.set_section("notify_webhook", {
+        "enabled": request.form.get("webhook_enabled") == "on",
+        "url": request.form.get("webhook_url", "").strip(),
+        "headers": request.form.get("webhook_headers", "").strip(),
+    })
+    flash("Webhook notification settings saved.", "success")
+    return redirect(url_for("settings.index"))
+
+
+@bp.route("/test-notify/<channel>", methods=["POST"])
+def test_notify(channel):
+    from web.services import get_notification_dispatcher
+    dispatcher = get_notification_dispatcher()
+    success, message = dispatcher.test_channel(channel)
+    flash(message, "success" if success else "danger")
     return redirect(url_for("settings.index"))
 
 

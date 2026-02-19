@@ -83,6 +83,16 @@ def _run_scheduled_checks():
             if ssl_alerts:
                 engine.save_history()
                 logger.info("Generated %d domain alert(s)", len(ssl_alerts))
+
+                # Dispatch notifications for unacknowledged alerts
+                try:
+                    from web.services import get_notification_dispatcher
+                    dispatcher = get_notification_dispatcher()
+                    results = dispatcher.dispatch(ssl_alerts)
+                    logger.info("Notification dispatch: %s", results)
+                except Exception:
+                    logger.exception("Notification dispatch failed")
+
         except Exception:
             logger.exception("Failed to generate domain alerts")
 
