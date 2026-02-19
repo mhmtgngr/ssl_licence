@@ -10,6 +10,7 @@ from web.services import (
     get_certificate_monitor,
     get_acme_service,
     get_azure_dns_service,
+    get_azure_resource_scanner,
     get_zone_transfer_service,
 )
 from tracker.domain import Domain, DomainStatus, DomainType, CertificateType
@@ -566,3 +567,66 @@ def import_zone_transfer():
         return redirect(url_for("domains.list_domains"))
 
     return redirect(url_for("domains.import_domains"))
+
+
+@bp.route("/azure-resources")
+def azure_resources():
+    """Azure Resource Scanner page."""
+    scanner = get_azure_resource_scanner()
+    return render_template(
+        "domains/azure_resources.html",
+        azure_configured=scanner.is_configured(),
+    )
+
+
+@bp.route("/azure-resources/scan", methods=["POST"])
+def azure_resources_scan():
+    """Run Azure resource scan and show results."""
+    scanner = get_azure_resource_scanner()
+    if not scanner.is_configured():
+        flash("Azure credentials not configured.", "danger")
+        return redirect(url_for("domains.azure_resources"))
+
+    resource_types = request.form.getlist("resource_types") or None
+    bindings = scanner.scan_all(resource_types=resource_types)
+
+    # Match against tracked domains
+    from sslcert.azure_resources import match_bindings_to_registry
+    registry = get_domain_registry()
+    bindings = match_bindings_to_registry(bindings, registry)
+
+    # Summary stats
+    summary = {
+        "total": len(bindings),
+        "tracked": sum(1 for b in bindings if b.tracked),
+        "untracked": sum(1 for b in bindings if not b.tracked),
+        "ssl_enabled": sum(1 for b in bindings if b.ssl_enabled),
+        "by_type": {},
+    }
+    for b in bindings:
+        summary["by_type"][b.resource_type] = summary["by_type"].get(b.resource_type, 0) + 1
+
+    # Sort
+    from web.sort_utils import sort_items
+    bindings, sort_field, sort_order = sort_items(
+        bindings,
+        request.args.get("sort"),
+        request.args.get("order"),
+        {
+            "hostname": lambda b: (b.hostname or "").lower(),
+            "resource_type": lambda b: b.resource_type,
+            "resource_name": lambda b: (b.resource_name or "").lower(),
+            "subscription": lambda b: (b.subscription_name or "").lower(),
+            "ssl": lambda b: (1 if b.ssl_enabled else 0),
+            "tracked": lambda b: (1 if b.tracked else 0),
+        },
+    )
+
+    return render_template(
+        "domains/azure_resources.html",
+        azure_configured=True,
+        bindings=bindings,
+        summary=summary,
+        sort_field=sort_field,
+        sort_order=sort_order,
+    )

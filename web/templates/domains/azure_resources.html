@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Azure Resources{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-cloud-check"></i> Azure Resource Scanner</h4>
+    <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Domains
+    </a>
+</div>
+
+{% if not azure_configured %}
+<div class="card" style="max-width:640px;">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-cloud-slash"></i>
+            <p>Azure credentials not configured.</p>
+            <p class="text-muted small">
+                Set <code>AZURE_TENANT_ID</code>, <code>AZURE_CLIENT_ID</code>,
+                and <code>AZURE_CLIENT_SECRET</code> in .env or
+                <a href="{{ url_for('settings.index') }}">Settings</a>.
+            </p>
+        </div>
+    </div>
+</div>
+
+{% elif bindings is defined %}
+{# ── Results view ── #}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-primary">
+            <div class="card-body">
+                <h6><i class="bi bi-hdd-stack"></i> Total Bindings</h6>
+                <h2>{{ summary.total }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-success">
+            <div class="card-body">
+                <h6><i class="bi bi-check-circle"></i> Tracked</h6>
+                <h2>{{ summary.tracked }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-warning">
+            <div class="card-body">
+                <h6><i class="bi bi-question-circle"></i> Untracked</h6>
+                <h2>{{ summary.untracked }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat text-bg-info">
+            <div class="card-body">
+                <h6><i class="bi bi-lock"></i> SSL Enabled</h6>
+                <h2>{{ summary.ssl_enabled }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mb-3">
+    {% for rtype, count in summary.by_type.items() %}
+    <span class="badge bg-secondary me-1">{{ rtype|replace('_', ' ')|title }}: {{ count }}</span>
+    {% endfor %}
+</div>
+
+{% if bindings %}
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-table"></i> {{ bindings|length }} resource binding{{ 's' if bindings|length != 1 }}</div>
+    <div class="card-body table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            {% from "macros/sort_header.html" import sort_th with context %}
+            <thead>
+                <tr>
+                    {{ sort_th("Hostname", "hostname", sort_field, sort_order) }}
+                    {{ sort_th("Resource Type", "resource_type", sort_field, sort_order) }}
+                    {{ sort_th("Resource Name", "resource_name", sort_field, sort_order) }}
+                    <th>Resource Group</th>
+                    {{ sort_th("Subscription", "subscription", sort_field, sort_order) }}
+                    {{ sort_th("SSL", "ssl", sort_field, sort_order) }}
+                    {{ sort_th("Tracked", "tracked", sort_field, sort_order) }}
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in bindings %}
+                <tr>
+                    <td class="fw-semibold">{{ b.hostname }}</td>
+                    <td><span class="badge bg-light text-dark">{{ b.resource_type_display() }}</span></td>
+                    <td>{{ b.resource_name }}</td>
+                    <td><small>{{ b.resource_group }}</small></td>
+                    <td><small>{{ b.subscription_name or b.subscription_id[:8] }}</small></td>
+                    <td>
+                        {% if b.ssl_enabled %}
+                        <span class="badge bg-success">SSL</span>
+                        {% if b.ssl_thumbprint %}<code class="small ms-1">{{ b.ssl_thumbprint[:8] }}...</code>{% endif %}
+                        {% else %}
+                        <span class="badge bg-secondary">No SSL</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if b.tracked %}
+                        <a href="{{ url_for('domains.detail', domain_id=b.tracked_domain_id) }}" class="badge bg-success text-decoration-none">Tracked</a>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Untracked</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <p>No custom domain bindings found in the scanned Azure resources.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('domains.azure_resources_scan') }}">
+    <button type="submit" class="btn btn-outline-primary"><i class="bi bi-arrow-repeat"></i> Scan Again</button>
+</form>
+
+{% else %}
+{# ── Scan form ── #}
+<div class="card" style="max-width:640px;">
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            Scan Azure subscriptions for resources that use custom domains and SSL certificates.
+            Results will be matched against your tracked domains.
+        </p>
+        <form method="post" action="{{ url_for('domains.azure_resources_scan') }}">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Resource Types to Scan</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="resource_types" value="app_service" id="rt_app" checked>
+                    <label class="form-check-label" for="rt_app">App Service (Web Apps)</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="resource_types" value="application_gateway" id="rt_agw" checked>
+                    <label class="form-check-label" for="rt_agw">Application Gateway</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="resource_types" value="front_door" id="rt_fd" checked>
+                    <label class="form-check-label" for="rt_fd">Front Door</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="resource_types" value="cdn" id="rt_cdn" checked>
+                    <label class="form-check-label" for="rt_cdn">CDN</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="resource_types" value="api_management" id="rt_apim" checked>
+                    <label class="form-check-label" for="rt_apim">API Management</label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-cloud-download"></i> Scan Azure Resources
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

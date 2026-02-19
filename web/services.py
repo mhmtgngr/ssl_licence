@@ -119,6 +119,22 @@ def get_azure_dns_service():
     )
 
 
+def get_azure_resource_scanner():
+    from sslcert.azure_resources import AzureResourceScanner
+    from config.settings import (
+        AZURE_SUBSCRIPTION_ID,
+        AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+    )
+    store = get_settings_store()
+    azure = store.get_section("azure_dns")
+    return AzureResourceScanner(
+        subscription_id=azure.get("subscription_id") or AZURE_SUBSCRIPTION_ID,
+        tenant_id=azure.get("tenant_id") or AZURE_TENANT_ID,
+        client_id=azure.get("client_id") or AZURE_CLIENT_ID,
+        client_secret=azure.get("client_secret") or AZURE_CLIENT_SECRET,
+    )
+
+
 def get_zone_transfer_service():
     from sslcert.zone_transfer import ZoneTransferService
     return ZoneTransferService()
