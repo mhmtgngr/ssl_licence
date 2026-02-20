@@ -28,6 +28,7 @@ class AuditAction(str, Enum):
     USER_ADD = "user_add"
     USER_DELETE = "user_delete"
     USER_EDIT = "user_edit"
+    USER_AUTO_CREATED = "user_auto_created"
 
 
 @dataclass

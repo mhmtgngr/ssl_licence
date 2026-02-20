@@ -44,22 +44,34 @@ def load_current_user():
 
     config = get_auth_config()
 
-    # 1. Try APISIX pass-through headers
+    # 1. Try APISIX pass-through headers (OIDC)
     if config["apisix_enabled"]:
         apisix_user = request.headers.get(config["apisix_user_header"])
         if apisix_user:
-            apisix_role = request.headers.get(config["apisix_role_header"], "viewer")
             apisix_display = request.headers.get(config["apisix_display_name_header"], apisix_user)
-            try:
-                role = UserRole(apisix_role.lower())
-            except ValueError:
-                role = UserRole.VIEWER
-            g.current_user = User(
-                username=apisix_user,
-                role=role,
-                display_name=apisix_display,
-                user_id=f"apisix-{apisix_user}",
-            )
+            store = get_user_store()
+            user = store.get_by_username(apisix_user)
+            if user:
+                if user.disabled:
+                    return
+                # Update display name and last_login from OIDC token
+                from datetime import datetime, timezone
+                store.update(user.user_id,
+                             display_name=apisix_display or user.display_name,
+                             last_login=datetime.now(timezone.utc))
+                g.current_user = user
+            else:
+                # Auto-create OIDC user on first login (default: viewer)
+                new_user = User(
+                    username=apisix_user,
+                    role=UserRole.VIEWER,
+                    display_name=apisix_display,
+                    auth_source="oidc",
+                )
+                store.add(new_user)
+                get_audit_log().log("user_auto_created", apisix_user,
+                                    f"OIDC first login, role: viewer", user="system")
+                g.current_user = new_user
             return
 
     # 2. Try Flask session (local login)

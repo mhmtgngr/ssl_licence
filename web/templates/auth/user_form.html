@@ -35,6 +35,7 @@
                         </select>
                     </div>
 
+                    {% if action == "add" or (action == "edit" and edit_user.auth_source != "oidc") %}
                     <div class="mb-3">
                         <label for="password" class="form-label">
                             Password {{ "(leave blank to keep current)" if action == "edit" }}
@@ -42,6 +43,12 @@
                         <input type="password" class="form-control" id="password" name="password"
                                {{ "required" if action == "add" }}>
                     </div>
+                    {% endif %}
+                    {% if action == "edit" and edit_user.auth_source == "oidc" %}
+                    <div class="mb-3">
+                        <small class="text-muted"><i class="bi bi-cloud"></i> OIDC user — authenticated via Azure AD, no local password.</small>
+                    </div>
+                    {% endif %}
 
                     {% if action == "edit" %}
                     <div class="mb-3 form-check">

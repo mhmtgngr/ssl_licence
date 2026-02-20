@@ -26,6 +26,7 @@ class User:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_login: datetime | None = None
     disabled: bool = False
+    auth_source: str = "local"  # "local" or "oidc"
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -45,6 +46,7 @@ class User:
             "created_at": self.created_at.isoformat(),
             "last_login": self.last_login.isoformat() if self.last_login else None,
             "disabled": self.disabled,
+            "auth_source": self.auth_source,
         }
 
     @classmethod
@@ -66,6 +68,7 @@ class User:
                 else None
             ),
             disabled=data.get("disabled", False),
+            auth_source=data.get("auth_source", "local"),
         )
 
 

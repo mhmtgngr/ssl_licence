@@ -15,6 +15,7 @@
                 <tr>
                     <th>Username</th>
                     <th>Display Name</th>
+                    <th>Source</th>
                     <th>Role</th>
                     <th>Last Login</th>
                     <th>Status</th>
@@ -26,6 +27,13 @@
                 <tr>
                     <td class="fw-semibold">{{ u.username }}</td>
                     <td>{{ u.display_name }}</td>
+                    <td>
+                        {% if u.auth_source == 'oidc' %}
+                        <span class="badge bg-info"><i class="bi bi-cloud"></i> OIDC</span>
+                        {% else %}
+                        <span class="badge bg-dark"><i class="bi bi-key"></i> Local</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <span class="badge bg-{{ 'danger' if u.role.value == 'admin' else 'primary' if u.role.value == 'editor' else 'secondary' }}">
                             {{ u.role.value|title }}
