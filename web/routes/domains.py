@@ -276,10 +276,12 @@ def detail(domain_id):
     )
 
 
-@bp.route("/<domain_id>/chain-check", methods=["POST"])
+@bp.route("/<domain_id>/chain-check", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def domain_chain_check(domain_id):
     """Run certificate chain validation for a domain."""
+    if request.method == "GET":
+        return redirect(url_for("domains.detail", domain_id=domain_id))
     registry = get_domain_registry()
     domain = registry.get(domain_id)
     if not domain:
@@ -300,10 +302,12 @@ def domain_chain_check(domain_id):
     )
 
 
-@bp.route("/<domain_id>/ocsp-check", methods=["POST"])
+@bp.route("/<domain_id>/ocsp-check", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def domain_ocsp_check(domain_id):
     """Run OCSP revocation check for a domain."""
+    if request.method == "GET":
+        return redirect(url_for("domains.detail", domain_id=domain_id))
     registry = get_domain_registry()
     domain = registry.get(domain_id)
     if not domain:
@@ -359,9 +363,11 @@ def edit_domain(domain_id):
     return render_template("domains/edit.html", domain=domain)
 
 
-@bp.route("/<domain_id>/delete", methods=["POST"])
+@bp.route("/<domain_id>/delete", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def delete_domain(domain_id):
+    if request.method == "GET":
+        return redirect(url_for("domains.list_domains"))
     registry = get_domain_registry()
     domain = registry.get(domain_id)
     hostname = domain.hostname if domain else domain_id
@@ -373,9 +379,11 @@ def delete_domain(domain_id):
     return redirect(url_for("domains.list_domains"))
 
 
-@bp.route("/<domain_id>/refresh", methods=["POST"])
+@bp.route("/<domain_id>/refresh", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def refresh_domain(domain_id):
+    if request.method == "GET":
+        return redirect(url_for("domains.detail", domain_id=domain_id))
     registry = get_domain_registry()
     domain = registry.get(domain_id)
     if not domain:
@@ -421,10 +429,12 @@ def refresh_domain(domain_id):
     return redirect(url_for("domains.detail", domain_id=domain_id))
 
 
-@bp.route("/refresh-all", methods=["POST"])
+@bp.route("/refresh-all", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def refresh_all():
     """Trigger background bulk refresh of all domains."""
+    if request.method == "GET":
+        return redirect(url_for("domains.list_domains"))
     from web.scheduler import scheduler
 
     scheduler.add_job(
@@ -611,10 +621,12 @@ def discover():
     )
 
 
-@bp.route("/<domain_id>/letsencrypt", methods=["POST"])
+@bp.route("/<domain_id>/letsencrypt", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def issue_letsencrypt(domain_id):
     """Issue a Let's Encrypt certificate for a domain."""
+    if request.method == "GET":
+        return redirect(url_for("domains.detail", domain_id=domain_id))
     registry = get_domain_registry()
     domain = registry.get(domain_id)
     if not domain:
@@ -645,10 +657,12 @@ def issue_letsencrypt(domain_id):
     return redirect(url_for("domains.detail", domain_id=domain_id))
 
 
-@bp.route("/<domain_id>/letsencrypt/renew", methods=["POST"])
+@bp.route("/<domain_id>/letsencrypt/renew", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def renew_letsencrypt(domain_id):
     """Renew a Let's Encrypt certificate."""
+    if request.method == "GET":
+        return redirect(url_for("domains.detail", domain_id=domain_id))
     registry = get_domain_registry()
     domain = registry.get(domain_id)
     if not domain:
@@ -677,10 +691,12 @@ def renew_letsencrypt(domain_id):
     return redirect(url_for("domains.detail", domain_id=domain_id))
 
 
-@bp.route("/<domain_id>/letsencrypt/toggle", methods=["POST"])
+@bp.route("/<domain_id>/letsencrypt/toggle", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def toggle_auto_renew(domain_id):
     """Toggle auto-renewal for Let's Encrypt."""
+    if request.method == "GET":
+        return redirect(url_for("domains.detail", domain_id=domain_id))
     registry = get_domain_registry()
     domain = registry.get(domain_id)
     if not domain:
@@ -731,10 +747,12 @@ def import_domains():
     )
 
 
-@bp.route("/import/azure", methods=["POST"])
+@bp.route("/import/azure", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def import_azure():
     """Import domains from Azure DNS zones."""
+    if request.method == "GET":
+        return redirect(url_for("domains.list_domains"))
     azure_dns = get_azure_dns_service()
     if not azure_dns.is_configured():
         flash("Azure DNS is not configured. Set AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET in .env or Settings.", "danger")
@@ -872,10 +890,12 @@ def import_azure():
     return redirect(url_for("domains.import_domains"))
 
 
-@bp.route("/import/zone-transfer", methods=["POST"])
+@bp.route("/import/zone-transfer", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def import_zone_transfer():
     """Import domains via DNS zone transfer (AXFR)."""
+    if request.method == "GET":
+        return redirect(url_for("domains.list_domains"))
     action = request.form.get("action", "transfer")
 
     if action == "transfer":
@@ -988,10 +1008,12 @@ def azure_resources():
     )
 
 
-@bp.route("/azure-resources/scan", methods=["POST"])
+@bp.route("/azure-resources/scan", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def azure_resources_scan():
     """Run Azure resource scan and show results."""
+    if request.method == "GET":
+        return redirect(url_for("domains.list_domains"))
     scanner = get_azure_resource_scanner()
     if not scanner.is_configured():
         flash("Azure credentials not configured.", "danger")

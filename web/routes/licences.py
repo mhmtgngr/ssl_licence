@@ -84,9 +84,11 @@ def validate():
     return render_template("licences/validate.html", result=result, key=key)
 
 
-@bp.route("/revoke", methods=["POST"])
+@bp.route("/revoke", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def revoke():
+    if request.method == "GET":
+        return redirect(url_for("licences.list_licences"))
     key = request.form.get("licence_key", "")
     mgr = get_licence_manager()
     if mgr.revoke(key):

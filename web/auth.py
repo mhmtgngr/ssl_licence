@@ -181,8 +181,10 @@ def login():
     return render_template("auth/login.html")
 
 
-@bp.route("/logout", methods=["POST"])
+@bp.route("/logout", methods=["GET", "POST"])
 def logout():
+    if request.method == "GET":
+        return redirect(url_for("dashboard.index"))
     """Log out the current user."""
     username = g.current_user.username if g.get("current_user") else "unknown"
     get_audit_log().log("user_logout", username, user=username)
@@ -276,10 +278,12 @@ def edit_user(user_id):
     return render_template("auth/user_form.html", action="edit", edit_user=user)
 
 
-@bp.route("/users/<user_id>/delete", methods=["POST"])
+@bp.route("/users/<user_id>/delete", methods=["GET", "POST"])
 @role_required("admin")
 def delete_user(user_id):
     """Admin: delete a user."""
+    if request.method == "GET":
+        return redirect(url_for("auth.list_users"))
     store = get_user_store()
     user = store.get_by_id(user_id)
 

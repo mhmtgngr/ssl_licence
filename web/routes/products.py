@@ -137,9 +137,11 @@ def detail(product_id):
     return render_template("products/detail.html", product=product)
 
 
-@bp.route("/<product_id>/delete", methods=["POST"])
+@bp.route("/<product_id>/delete", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def delete_product(product_id):
+    if request.method == "GET":
+        return redirect(url_for("products.list_products"))
     registry = get_registry()
     if registry.remove(product_id):
         flash("Product removed.", "success")

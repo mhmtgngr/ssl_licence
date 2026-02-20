@@ -111,9 +111,11 @@ def check_history():
     )
 
 
-@bp.route("/history/clear", methods=["POST"])
+@bp.route("/history/clear", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def clear_history():
+    if request.method == "GET":
+        return redirect(url_for("certificates.list_certs"))
     store = get_cert_checks_store()
     store.clear()
     flash("Check history cleared.", "success")

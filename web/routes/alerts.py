@@ -52,9 +52,11 @@ def list_alerts():
     )
 
 
-@bp.route("/acknowledge", methods=["POST"])
+@bp.route("/acknowledge", methods=["GET", "POST"])
 @role_required("admin", "editor")
 def acknowledge():
+    if request.method == "GET":
+        return redirect(url_for("alerts.list_alerts"))
     product_id = request.form.get("product_id", "")
     alert_type = request.form.get("alert_type", "")
     if not product_id or not alert_type:
