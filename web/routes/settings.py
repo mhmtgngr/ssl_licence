@@ -30,9 +30,11 @@ def index():
     )
 
 
-@bp.route("/azure-dns", methods=["POST"])
+@bp.route("/azure-dns", methods=["GET", "POST"])
 @role_required("admin")
 def save_azure_dns():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     store = get_settings_store()
     store.set_section("azure_dns", {
         "tenant_id": request.form.get("tenant_id", "").strip(),
@@ -46,9 +48,11 @@ def save_azure_dns():
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/acme", methods=["POST"])
+@bp.route("/acme", methods=["GET", "POST"])
 @role_required("admin")
 def save_acme():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     store = get_settings_store()
     store.set_section("acme", {
         "email": request.form.get("email", "").strip(),
@@ -59,9 +63,11 @@ def save_acme():
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/alerts", methods=["POST"])
+@bp.route("/alerts", methods=["GET", "POST"])
 @role_required("admin")
 def save_alerts():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     store = get_settings_store()
     try:
         warning_days = int(request.form.get("ssl_warning_days", "30"))
@@ -76,9 +82,11 @@ def save_alerts():
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/notify-email", methods=["POST"])
+@bp.route("/notify-email", methods=["GET", "POST"])
 @role_required("admin")
 def save_notify_email():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     store = get_settings_store()
     try:
         smtp_port = int(request.form.get("smtp_port", "587"))
@@ -99,9 +107,11 @@ def save_notify_email():
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/notify-slack", methods=["POST"])
+@bp.route("/notify-slack", methods=["GET", "POST"])
 @role_required("admin")
 def save_notify_slack():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     store = get_settings_store()
     store.set_section("notify_slack", {
         "enabled": request.form.get("slack_enabled") == "on",
@@ -112,9 +122,11 @@ def save_notify_slack():
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/notify-webhook", methods=["POST"])
+@bp.route("/notify-webhook", methods=["GET", "POST"])
 @role_required("admin")
 def save_notify_webhook():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     store = get_settings_store()
     store.set_section("notify_webhook", {
         "enabled": request.form.get("webhook_enabled") == "on",
@@ -126,9 +138,11 @@ def save_notify_webhook():
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/test-notify/<channel>", methods=["POST"])
+@bp.route("/test-notify/<channel>", methods=["GET", "POST"])
 @role_required("admin")
 def test_notify(channel):
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     from web.services import get_notification_dispatcher
     dispatcher = get_notification_dispatcher()
     success, message = dispatcher.test_channel(channel)
@@ -136,9 +150,11 @@ def test_notify(channel):
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/api-keys/generate", methods=["POST"])
+@bp.route("/api-keys/generate", methods=["GET", "POST"])
 @role_required("admin")
 def generate_api_key():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     key_name = request.form.get("key_name", "").strip()
     if not key_name:
         flash("Key name is required.", "danger")
@@ -159,9 +175,11 @@ def generate_api_key():
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/api-keys/delete", methods=["POST"])
+@bp.route("/api-keys/delete", methods=["GET", "POST"])
 @role_required("admin")
 def delete_api_key():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     key_name = request.form.get("key_name", "").strip()
     if not key_name:
         flash("Key name is required.", "danger")
@@ -179,9 +197,11 @@ def delete_api_key():
     return redirect(url_for("settings.index"))
 
 
-@bp.route("/test-azure", methods=["POST"])
+@bp.route("/test-azure", methods=["GET", "POST"])
 @role_required("admin")
 def test_azure():
+    if request.method == "GET":
+        return redirect(url_for("settings.index"))
     try:
         svc = get_azure_dns_service()
         if svc.is_configured():
