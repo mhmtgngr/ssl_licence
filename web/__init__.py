@@ -27,6 +27,7 @@ def create_app():
         static_folder="static",
     )
     app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY") or "dev-dashboard-key"
+    app.config["SESSION_COOKIE_NAME"] = "flask_session"
     app.config["WTF_CSRF_TIME_LIMIT"] = 3600
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 
