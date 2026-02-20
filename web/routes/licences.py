@@ -1,12 +1,14 @@
 """Licence routes — list, issue, validate, revoke."""
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
+from web.auth import login_required, role_required
 from web.services import get_licence_manager
 
 bp = Blueprint("licences", __name__)
 
 
 @bp.route("/")
+@login_required
 def list_licences():
     mgr = get_licence_manager()
     licences = mgr.list_all()
@@ -37,6 +39,7 @@ def list_licences():
 
 
 @bp.route("/issue", methods=["GET", "POST"])
+@role_required("admin", "editor")
 def issue():
     if request.method == "POST":
         issued_to = request.form.get("issued_to", "").strip()
@@ -67,6 +70,7 @@ def issue():
 
 
 @bp.route("/validate", methods=["GET", "POST"])
+@login_required
 def validate():
     result = None
     key = ""
@@ -81,6 +85,7 @@ def validate():
 
 
 @bp.route("/revoke", methods=["POST"])
+@role_required("admin", "editor")
 def revoke():
     key = request.form.get("licence_key", "")
     mgr = get_licence_manager()

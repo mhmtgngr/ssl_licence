@@ -10,6 +10,9 @@
         <input type="text" name="q" class="form-control form-control-sm" placeholder="Search target..." value="{{ q }}" style="width:180px;">
     </div>
     <div class="col-auto">
+        <input type="text" name="user" class="form-control form-control-sm" placeholder="Filter by user..." value="{{ user_filter }}" style="width:150px;">
+    </div>
+    <div class="col-auto">
         <select name="action" class="form-select form-select-sm">
             <option value="">All Actions</option>
             {% for a in AuditAction %}
@@ -19,7 +22,7 @@
     </div>
     <div class="col-auto">
         <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
-        {% if q or action_filter %}
+        {% if q or action_filter or user_filter %}
         <a href="{{ url_for('audit.list_entries') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
         {% endif %}
     </div>
@@ -34,6 +37,7 @@
             <thead>
                 <tr>
                     {{ sort_th("Timestamp", "timestamp", sort_field, sort_order) }}
+                    {{ sort_th("User", "user", sort_field, sort_order) }}
                     {{ sort_th("Action", "action", sort_field, sort_order) }}
                     {{ sort_th("Target", "target", sort_field, sort_order) }}
                     <th>Detail</th>
@@ -43,6 +47,7 @@
                 {% for e in entries %}
                 <tr>
                     <td><small class="text-muted">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
+                    <td><small>{{ e.user or '—' }}</small></td>
                     <td>
                         {% set action_colors = {
                             'domain_add': 'success', 'domain_delete': 'danger', 'domain_edit': 'info',
@@ -50,7 +55,8 @@
                             'domain_import': 'success', 'azure_scan': 'info',
                             'certificate_issue': 'success', 'certificate_renew': 'warning',
                             'alert_acknowledge': 'secondary', 'settings_change': 'dark',
-                            'export': 'secondary', 'scheduled_check': 'primary', 'auto_renewal': 'warning'
+                            'export': 'secondary', 'scheduled_check': 'primary', 'auto_renewal': 'warning',
+                            'user_login': 'info', 'user_logout': 'secondary', 'user_add': 'success', 'user_delete': 'danger', 'user_edit': 'info'
                         } %}
                         <span class="badge bg-{{ action_colors.get(e.action.value, 'secondary') }}">{{ e.action.value|replace('_', ' ')|title }}</span>
                     </td>

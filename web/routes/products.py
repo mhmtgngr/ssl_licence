@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
+from web.auth import login_required, role_required
 from web.services import get_registry, get_search_engine
 from tracker.product import Product, ProductCategory, LicenceType, SupportStatus
 
@@ -19,6 +20,7 @@ def _parse_date(val):
 
 
 @bp.route("/")
+@login_required
 def list_products():
     registry = get_registry()
     category = request.args.get("category")
@@ -81,6 +83,7 @@ def list_products():
 
 
 @bp.route("/add", methods=["GET", "POST"])
+@role_required("admin", "editor")
 def add_product():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -124,6 +127,7 @@ def add_product():
 
 
 @bp.route("/<product_id>")
+@login_required
 def detail(product_id):
     registry = get_registry()
     product = registry.get(product_id)
@@ -134,6 +138,7 @@ def detail(product_id):
 
 
 @bp.route("/<product_id>/delete", methods=["POST"])
+@role_required("admin", "editor")
 def delete_product(product_id):
     registry = get_registry()
     if registry.remove(product_id):

@@ -2,6 +2,7 @@
 
 from flask import Blueprint, render_template, request
 
+from web.auth import login_required
 from web.services import get_audit_log
 from tracker.audit import AuditAction
 
@@ -9,10 +10,12 @@ bp = Blueprint("audit", __name__)
 
 
 @bp.route("/")
+@login_required
 def list_entries():
     audit = get_audit_log()
 
     action_filter = request.args.get("action", "")
+    user_filter = request.args.get("user", "").strip()
     q = request.args.get("q", "").strip()
 
     if action_filter:
@@ -25,6 +28,9 @@ def list_entries():
     else:
         entries = audit.list_all()
 
+    if user_filter:
+        entries = [e for e in entries if e.user and user_filter.lower() in e.user.lower()]
+
     from web.sort_utils import sort_items
     sort_f = request.args.get("sort") or "timestamp"
     sort_o = request.args.get("order") or "desc"
@@ -34,6 +40,7 @@ def list_entries():
         sort_o,
         {
             "timestamp": lambda e: e.timestamp,
+            "user": lambda e: (e.user or "").lower(),
             "action": lambda e: e.action.value,
             "target": lambda e: e.target.lower(),
         },
@@ -43,6 +50,7 @@ def list_entries():
         "audit/list.html",
         entries=entries,
         action_filter=action_filter,
+        user_filter=user_filter,
         q=q,
         sort_field=sort_field,
         sort_order=sort_order,

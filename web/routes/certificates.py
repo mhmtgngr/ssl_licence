@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, request, flash, redirect, url_for
+from web.auth import login_required, role_required
 from web.services import (
     get_certificate_manager,
     get_certificate_monitor,
@@ -15,6 +16,7 @@ bp = Blueprint("certificates", __name__)
 
 
 @bp.route("/")
+@login_required
 def list_certs():
     mgr = get_certificate_manager()
     certs = mgr.list_certificates()
@@ -38,6 +40,7 @@ def list_certs():
 
 
 @bp.route("/check", methods=["GET", "POST"])
+@login_required
 def check_remote():
     results = []
     domains_input = ""
@@ -82,6 +85,7 @@ def check_remote():
 
 
 @bp.route("/history")
+@login_required
 def check_history():
     store = get_cert_checks_store()
     checks = store.list_all()
@@ -108,6 +112,7 @@ def check_history():
 
 
 @bp.route("/history/clear", methods=["POST"])
+@role_required("admin", "editor")
 def clear_history():
     store = get_cert_checks_store()
     store.clear()
@@ -116,6 +121,7 @@ def clear_history():
 
 
 @bp.route("/chain-check", methods=["GET", "POST"])
+@login_required
 def chain_check():
     """Validate certificate chain for a domain."""
     result = None
@@ -131,6 +137,7 @@ def chain_check():
 
 
 @bp.route("/ocsp-check", methods=["GET", "POST"])
+@login_required
 def ocsp_check():
     """Check OCSP revocation status for a domain."""
     result = None

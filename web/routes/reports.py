@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from flask import Blueprint, render_template, request
+from web.auth import login_required, current_username
 from web.services import get_registry, get_alert_engine, get_report_generator, get_audit_log, _DATA_DIR
 from web.sort_utils import sort_items
 
@@ -13,6 +14,7 @@ DAILY_REPORTS_DIR = _DATA_DIR / "daily_reports"
 
 
 @bp.route("/")
+@login_required
 def index():
     report_type = request.args.get("type", "expiry")
     days = int(request.args.get("days", 180))
@@ -93,6 +95,7 @@ def index():
 
 
 @bp.route("/export")
+@login_required
 def export_report():
     """Export current report as CSV."""
     import csv
@@ -128,7 +131,7 @@ def export_report():
             str(item.get("licence_expiry", getattr(item, "licence_expiry", ""))),
         ])
 
-    get_audit_log().log("export", "reports", f"Exported expiry report ({days} days)")
+    get_audit_log().log("export", "reports", f"Exported expiry report ({days} days)", user=current_username())
     return Response(
         output.getvalue(),
         mimetype="text/csv",
@@ -137,6 +140,7 @@ def export_report():
 
 
 @bp.route("/daily")
+@login_required
 def daily():
     """View daily health check reports."""
     reports = []

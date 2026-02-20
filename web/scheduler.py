@@ -88,7 +88,7 @@ def _run_scheduled_checks():
 
         try:
             from web.services import get_audit_log
-            get_audit_log().log("scheduled_check", "daily", f"Checked {checked}/{len(domains)} domains")
+            get_audit_log().log("scheduled_check", "daily", f"Checked {checked}/{len(domains)} domains", user="system")
         except Exception:
             logger.exception("Failed to log scheduled check to audit")
 
@@ -177,7 +177,7 @@ def _run_auto_renewals():
         if renewed > 0:
             try:
                 from web.services import get_audit_log
-                get_audit_log().log("auto_renewal", "scheduled", f"Renewed {renewed}/{len(candidates)} certificates")
+                get_audit_log().log("auto_renewal", "scheduled", f"Renewed {renewed}/{len(candidates)} certificates", user="system")
             except Exception:
                 logger.exception("Failed to log auto-renewal to audit")
 
@@ -222,7 +222,7 @@ def _run_azure_scan():
 
         audit = get_audit_log()
         audit.log("azure_scan", "scheduled",
-                  f"{summary['total']} bindings, {summary['untracked']} untracked")
+                  f"{summary['total']} bindings, {summary['untracked']} untracked", user="system")
 
         # Notify about untracked domains
         untracked = [b for b in bindings if not b.tracked]

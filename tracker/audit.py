@@ -23,6 +23,11 @@ class AuditAction(str, Enum):
     EXPORT = "export"
     SCHEDULED_CHECK = "scheduled_check"
     AUTO_RENEWAL = "auto_renewal"
+    USER_LOGIN = "user_login"
+    USER_LOGOUT = "user_logout"
+    USER_ADD = "user_add"
+    USER_DELETE = "user_delete"
+    USER_EDIT = "user_edit"
 
 
 @dataclass
@@ -30,6 +35,7 @@ class AuditEntry:
     action: AuditAction
     target: str
     detail: str
+    user: str = ""
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     entry_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
@@ -39,6 +45,7 @@ class AuditEntry:
             "action": self.action.value,
             "target": self.target,
             "detail": self.detail,
+            "user": self.user,
             "timestamp": self.timestamp.isoformat(),
         }
 
@@ -49,6 +56,7 @@ class AuditEntry:
             action=AuditAction(data["action"]),
             target=data.get("target", ""),
             detail=data.get("detail", ""),
+            user=data.get("user", ""),
             timestamp=datetime.fromisoformat(data["timestamp"]),
         )
 
@@ -63,10 +71,10 @@ class AuditLog:
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
-    def log(self, action, target: str, detail: str = "") -> AuditEntry:
+    def log(self, action, target: str, detail: str = "", user: str = "") -> AuditEntry:
         if isinstance(action, str):
             action = AuditAction(action)
-        entry = AuditEntry(action=action, target=target, detail=detail)
+        entry = AuditEntry(action=action, target=target, detail=detail, user=user)
         data = self._load()
         data.insert(0, entry.to_dict())
         if len(data) > MAX_ENTRIES:

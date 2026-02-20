@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-people"></i> User Management</h4>
+    <a href="{{ url_for('auth.add_user') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-person-plus"></i> Add User
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Display Name</th>
+                    <th>Role</th>
+                    <th>Last Login</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td class="fw-semibold">{{ u.username }}</td>
+                    <td>{{ u.display_name }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'danger' if u.role.value == 'admin' else 'primary' if u.role.value == 'editor' else 'secondary' }}">
+                            {{ u.role.value|title }}
+                        </span>
+                    </td>
+                    <td><small class="text-muted">{{ u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else 'Never' }}</small></td>
+                    <td>
+                        {% if u.disabled %}
+                        <span class="badge bg-warning">Disabled</span>
+                        {% else %}
+                        <span class="badge bg-success">Active</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('auth.edit_user', user_id=u.user_id) }}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% if u.user_id != current_user.user_id %}
+                        <form method="post" action="{{ url_for('auth.delete_user', user_id=u.user_id) }}" class="d-inline" data-confirm="Delete user '{{ u.username }}'?">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

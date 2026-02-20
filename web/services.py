@@ -15,6 +15,7 @@ DOMAIN_REGISTRY_PATH = str(_DATA_DIR / "domains" / "registry.json")
 LETSENCRYPT_DIR = str(_DATA_DIR / "letsencrypt")
 AZURE_SCAN_PATH = _DATA_DIR / "azure_resources_scan.json"
 AUDIT_LOG_PATH = str(_DATA_DIR / "audit_log.json")
+USERS_PATH = str(_DATA_DIR / "users.json")
 
 
 def get_registry():
@@ -162,6 +163,11 @@ def get_notification_dispatcher():
 def get_audit_log():
     from tracker.audit import AuditLog
     return AuditLog(AUDIT_LOG_PATH)
+
+
+def get_user_store():
+    from tracker.user import UserStore
+    return UserStore(USERS_PATH)
 
 
 def get_cert_checks_store():

@@ -1,12 +1,14 @@
 """Dashboard route — home page with summary and charts."""
 
 from flask import Blueprint, render_template, request
+from web.auth import login_required
 from web.services import get_registry, get_alert_engine, get_domain_registry
 
 bp = Blueprint("dashboard", __name__)
 
 
 @bp.route("/")
+@login_required
 def index():
     registry = get_registry()
     engine = get_alert_engine(registry)

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit User" if action == "edit" else "Add User" }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h4>{{ "Edit User" if action == "edit" else "Add User" }}</h4>
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% if action == "add" %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" value="{{ edit_user.username }}" disabled>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="display_name" class="form-label">Display Name</label>
+                        <input type="text" class="form-control" id="display_name" name="display_name"
+                               value="{{ edit_user.display_name if action == 'edit' else '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Role</label>
+                        <select class="form-select" id="role" name="role">
+                            <option value="admin" {{ 'selected' if action == 'edit' and edit_user.role.value == 'admin' }}>Admin</option>
+                            <option value="editor" {{ 'selected' if action == 'edit' and edit_user.role.value == 'editor' }}>Editor</option>
+                            <option value="viewer" {{ 'selected' if (action == 'add') or (action == 'edit' and edit_user.role.value == 'viewer') }}>Viewer</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            Password {{ "(leave blank to keep current)" if action == "edit" }}
+                        </label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               {{ "required" if action == "add" }}>
+                    </div>
+
+                    {% if action == "edit" %}
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="disabled" name="disabled"
+                               {{ "checked" if edit_user.disabled }}>
+                        <label class="form-check-label" for="disabled">Disabled</label>
+                    </div>
+                    {% endif %}
+
+                    <button type="submit" class="btn btn-primary">{{ "Save Changes" if action == "edit" else "Create User" }}</button>
+                    <a href="{{ url_for('auth.list_users') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

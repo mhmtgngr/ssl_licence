@@ -1,12 +1,14 @@
 """Analysis route — AI-powered risk assessment and recommendations."""
 
 from flask import Blueprint, render_template, request
+from web.auth import login_required
 from web.services import get_registry, get_analyzer
 
 bp = Blueprint("analysis", __name__)
 
 
 @bp.route("/")
+@login_required
 def index():
     registry = get_registry()
     analyzer = get_analyzer(registry)

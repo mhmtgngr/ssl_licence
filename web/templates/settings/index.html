@@ -34,6 +34,11 @@
             <i class="bi bi-link-45deg"></i> Webhook
         </button>
     </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#api-keys" type="button" role="tab">
+            <i class="bi bi-key"></i> API Keys
+        </button>
+    </li>
 </ul>
 
 <div class="tab-content">
@@ -284,6 +289,54 @@
                                 formaction="{{ url_for('settings.test_notify', channel='webhook') }}">
                             <i class="bi bi-send"></i> Send Test
                         </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Keys Tab -->
+    <div class="tab-pane fade" id="api-keys" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-key"></i> API Keys</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Generate API keys for programmatic access to the REST API. Include the key as <code>X-API-Key</code> header.</p>
+
+                {% if api_keys %}
+                <table class="table table-sm mb-4">
+                    <thead>
+                        <tr><th>Key Name</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for name in api_keys %}
+                        <tr>
+                            <td class="fw-semibold">{{ name }}</td>
+                            <td>
+                                <form method="post" action="{{ url_for('settings.delete_api_key') }}" class="d-inline" data-confirm="Revoke API key '{{ name }}'?">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="key_name" value="{{ name }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Revoke</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('settings.generate_api_key') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row align-items-end">
+                        <div class="col-md-6 mb-3">
+                            <label for="key_name" class="form-label">Key Name</label>
+                            <input type="text" class="form-control" id="key_name" name="key_name" required
+                                   placeholder="e.g. ci-pipeline, monitoring">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Generate Key</button>
+                        </div>
                     </div>
                 </form>
             </div>

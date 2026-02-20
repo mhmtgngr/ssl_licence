@@ -2,8 +2,9 @@
 
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
+from web.auth import role_required, current_username
 from web.services import (
     get_registry,
     get_alert_engine,
@@ -20,6 +21,32 @@ from tracker.alert_engine import AlertLevel, AlertType
 from tracker.domain import Domain, DomainStatus
 
 bp = Blueprint("api", __name__)
+
+
+@bp.before_request
+def api_auth():
+    """Authenticate API requests via API key if no user already set."""
+    if g.get("current_user"):
+        return
+
+    api_key = request.headers.get("X-API-Key") or request.args.get("api_key")
+    if api_key:
+        import secrets as _secrets
+        from web.services import get_settings_store
+        store = get_settings_store()
+        stored_keys = store.get_section("api_keys")
+        for key_name, key_value in stored_keys.items():
+            if _secrets.compare_digest(api_key, key_value):
+                from tracker.user import User, UserRole
+                g.current_user = User(
+                    username=f"api:{key_name}",
+                    role=UserRole.EDITOR,
+                    display_name=f"API Key: {key_name}",
+                    user_id=f"apikey-{key_name}",
+                )
+                return
+
+    return jsonify({"error": "Authentication required. Provide X-API-Key header or session cookie."}), 401
 
 
 def _error(message, status=400):
@@ -55,6 +82,7 @@ def get_product(product_id):
 
 
 @bp.route("/products", methods=["POST"])
+@role_required("admin", "editor")
 def add_product():
     data = request.get_json(silent=True) or {}
     required = ["name", "vendor", "version", "category"]
@@ -107,6 +135,7 @@ def add_product():
 
 
 @bp.route("/products/<product_id>", methods=["DELETE"])
+@role_required("admin", "editor")
 def delete_product(product_id):
     registry = get_registry()
     if registry.remove(product_id):
@@ -150,6 +179,7 @@ def list_domains():
 
 
 @bp.route("/domains/refresh-all", methods=["POST"])
+@role_required("admin", "editor")
 def api_refresh_all():
     """Trigger background bulk refresh of all domains."""
     from web.scheduler import scheduler
@@ -190,6 +220,7 @@ def get_domain(domain_id):
 
 
 @bp.route("/domains", methods=["POST"])
+@role_required("admin", "editor")
 def add_domain():
     data = request.get_json(silent=True) or {}
     hostname = data.get("hostname", "").strip().lower()
@@ -211,6 +242,7 @@ def add_domain():
 
 
 @bp.route("/domains/<domain_id>", methods=["DELETE"])
+@role_required("admin", "editor")
 def delete_domain(domain_id):
     registry = get_domain_registry()
     if registry.remove(domain_id):
@@ -219,6 +251,7 @@ def delete_domain(domain_id):
 
 
 @bp.route("/domains/<domain_id>/refresh", methods=["POST"])
+@role_required("admin", "editor")
 def refresh_domain(domain_id):
     from web.routes.domains import _update_domain_dns, _update_domain_ssl
 
@@ -290,6 +323,7 @@ def alert_summary():
 
 
 @bp.route("/alerts/<product_id>/acknowledge", methods=["POST"])
+@role_required("admin", "editor")
 def acknowledge_alert(product_id):
     data = request.get_json(silent=True) or {}
     alert_type = data.get("alert_type", "")
@@ -306,6 +340,7 @@ def acknowledge_alert(product_id):
 # ── Certificates ─────────────────────────────────────────────────────
 
 @bp.route("/certificates/check", methods=["POST"])
+@role_required("admin", "editor")
 def check_certificates():
     data = request.get_json(silent=True) or {}
     domains = data.get("domains", [])
@@ -397,6 +432,7 @@ def api_ocsp_check():
 # ── Licences ─────────────────────────────────────────────────────────
 
 @bp.route("/licences", methods=["POST"])
+@role_required("admin", "editor")
 def issue_licence():
     data = request.get_json(silent=True) or {}
     if not data.get("licence_type") or not data.get("issued_to"):
@@ -453,6 +489,7 @@ def api_azure_resources():
 
 
 @bp.route("/azure-resources/scan", methods=["POST"])
+@role_required("admin", "editor")
 def api_azure_scan():
     """Trigger an Azure resource scan."""
     from web.services import get_azure_resource_scanner
@@ -513,6 +550,7 @@ def api_audit():
             "action": e.action,
             "target": e.target,
             "detail": e.detail,
+            "user": e.user,
         }
         for e in entries
     ])

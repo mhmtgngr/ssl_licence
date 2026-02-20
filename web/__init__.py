@@ -7,7 +7,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file if present (already gitignored)
 
-from flask import Flask, jsonify, render_template, request
+from datetime import timedelta
+
+from flask import Flask, g, jsonify, render_template, request
 from flask_wtf.csrf import CSRFProtect
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -24,8 +26,9 @@ def create_app():
         template_folder="templates",
         static_folder="static",
     )
-    app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-dashboard-key")
+    app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY") or "dev-dashboard-key"
     app.config["WTF_CSRF_TIME_LIMIT"] = 3600
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 
     csrf.init_app(app)
 
@@ -40,6 +43,7 @@ def create_app():
     from web.routes.settings import bp as settings_bp
     from web.routes.audit import bp as audit_bp
     from web.routes.api import bp as api_bp
+    from web.auth import bp as auth_bp, load_current_user
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(products_bp, url_prefix="/products")
@@ -52,7 +56,10 @@ def create_app():
     app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(audit_bp, url_prefix="/audit")
     app.register_blueprint(api_bp, url_prefix="/api/v1")
+    app.register_blueprint(auth_bp, url_prefix="/auth")
     csrf.exempt(api_bp)
+
+    app.before_request(load_current_user)
 
     @app.errorhandler(404)
     def not_found(e):
@@ -69,6 +76,10 @@ def create_app():
     @app.route("/health")
     def health_check():
         return jsonify({"status": "healthy", "version": "0.1.0"}), 200
+
+    @app.context_processor
+    def inject_current_user():
+        return {"current_user": g.get("current_user")}
 
     @app.context_processor
     def inject_enums():
