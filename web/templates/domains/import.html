@@ -80,10 +80,84 @@
             </div>
         </div>
 
+        {% elif azure_all_records is defined %}
+        {# All-zones records view #}
+        {% set new_records = azure_all_records|rejectattr('tracked')|list %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="bi bi-check2-square"></i> {{ azure_all_records|length }} record{{ 's' if azure_all_records|length != 1 }}
+                    across <strong>{{ azure_zone_count }}</strong> zone{{ 's' if azure_zone_count != 1 }}
+                    <span class="text-muted ms-2">({{ new_records|length }} new, {{ azure_all_records|length - new_records|length }} already tracked)</span>
+                </span>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('domains.import_azure') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="add_selected">
+                    <div class="table-responsive" style="max-height:500px;overflow-y:auto;">
+                        <table class="table table-sm table-hover mb-3">
+                            <thead class="sticky-top bg-white">
+                                <tr>
+                                    <th style="width:40px;">
+                                        <input type="checkbox" id="selectAllAzureAll" checked
+                                               onclick="document.querySelectorAll('#azure input[name=selected]').forEach(c=>c.checked=this.checked)">
+                                    </th>
+                                    <th>Hostname</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th>Zone</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in azure_all_records %}
+                                <tr class="{{ 'table-secondary' if r.tracked }}">
+                                    <td>
+                                        {% if not r.tracked %}
+                                        <input type="checkbox" name="selected" value="{{ r.hostname }}" checked>
+                                        {% else %}
+                                        <input type="checkbox" disabled title="Already tracked">
+                                        {% endif %}
+                                    </td>
+                                    <td class="fw-semibold">{{ r.hostname }}</td>
+                                    <td><span class="badge bg-light text-dark">{{ r.type }}</span></td>
+                                    <td><code>{{ r.value }}</code></td>
+                                    <td><span class="text-muted">{{ r.zone }}</span></td>
+                                    <td>
+                                        {% if r.tracked %}
+                                        <span class="badge bg-info">Tracked</span>
+                                        {% else %}
+                                        <span class="badge bg-success">New</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if new_records %}
+                    <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg"></i> Import {{ new_records|length }} New Domain{{ 's' if new_records|length != 1 }}</button>
+                    {% else %}
+                    <button type="button" class="btn btn-secondary" disabled>All domains already tracked</button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
         {% elif azure_zones is defined %}
         {# Phase 1: Zone list #}
         <div class="card" style="max-width:640px;">
-            <div class="card-header"><i class="bi bi-list-ul"></i> {{ azure_zones|length }} DNS Zone{{ 's' if azure_zones|length != 1 }}</div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-ul"></i> {{ azure_zones|length }} DNS Zone{{ 's' if azure_zones|length != 1 }}</span>
+                {% if azure_zones %}
+                <form method="post" action="{{ url_for('domains.import_azure') }}" class="d-inline ms-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="list_all_records">
+                    <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-cloud-download"></i> Import All Zones</button>
+                </form>
+                {% endif %}
+            </div>
             <div class="card-body">
                 {% for zone in azure_zones %}
                 <form method="post" action="{{ url_for('domains.import_azure') }}" class="d-inline">
@@ -109,11 +183,18 @@
         <div class="card" style="max-width:640px;">
             <div class="card-body">
                 <p class="text-muted mb-3">Connect to Azure DNS to import zones and records. Domains will be auto-checked for SSL, DNS, and WHOIS.</p>
-                <form method="post" action="{{ url_for('domains.import_azure') }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="action" value="list_zones">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-cloud-download"></i> List Azure DNS Zones</button>
-                </form>
+                <div class="d-flex gap-2">
+                    <form method="post" action="{{ url_for('domains.import_azure') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="list_zones">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-list-ul"></i> List Azure DNS Zones</button>
+                    </form>
+                    <form method="post" action="{{ url_for('domains.import_azure') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="import_all">
+                        <button type="submit" class="btn btn-success"><i class="bi bi-cloud-download"></i> Import All Zones</button>
+                    </form>
+                </div>
             </div>
         </div>
         {% endif %}

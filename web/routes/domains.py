@@ -1,9 +1,13 @@
 """Domain management routes — CRUD, DNS discovery, SSL checks, SOA/hosting info."""
 
+import logging
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 
+from web.auth import login_required, role_required, current_username
 from web.services import (
     get_domain_registry,
     get_dns_service,
@@ -74,6 +78,7 @@ def _update_domain_dns(domain: Domain, dns) -> None:
 
 
 @bp.route("/")
+@login_required
 def list_domains():
     registry = get_domain_registry()
     domains = registry.list_all()
@@ -175,6 +180,7 @@ def list_domains():
 
 
 @bp.route("/add", methods=["GET", "POST"])
+@role_required("admin", "editor")
 def add_domain():
     if request.method == "POST":
         hostname = request.form.get("hostname", "").strip().lower()
@@ -203,7 +209,7 @@ def add_domain():
         domain.last_checked = datetime.now(timezone.utc)
 
         registry.add(domain)
-        get_audit_log().log("domain_add", hostname, f"SSL: {domain.ssl_status or 'unknown'}")
+        get_audit_log().log("domain_add", hostname, f"SSL: {domain.ssl_status or 'unknown'}", user=current_username())
         flash(f"Domain {hostname} added and checked.", "success")
         return redirect(url_for("domains.detail", domain_id=domain.domain_id))
 
@@ -211,6 +217,7 @@ def add_domain():
 
 
 @bp.route("/<domain_id>")
+@login_required
 def detail(domain_id):
     registry = get_domain_registry()
     domain = registry.get(domain_id)
@@ -230,6 +237,7 @@ def detail(domain_id):
 
 
 @bp.route("/<domain_id>/chain-check", methods=["POST"])
+@role_required("admin", "editor")
 def domain_chain_check(domain_id):
     """Run certificate chain validation for a domain."""
     registry = get_domain_registry()
@@ -253,6 +261,7 @@ def domain_chain_check(domain_id):
 
 
 @bp.route("/<domain_id>/ocsp-check", methods=["POST"])
+@role_required("admin", "editor")
 def domain_ocsp_check(domain_id):
     """Run OCSP revocation check for a domain."""
     registry = get_domain_registry()
@@ -276,6 +285,7 @@ def domain_ocsp_check(domain_id):
 
 
 @bp.route("/<domain_id>/edit", methods=["GET", "POST"])
+@role_required("admin", "editor")
 def edit_domain(domain_id):
     registry = get_domain_registry()
     domain = registry.get(domain_id)
@@ -302,7 +312,7 @@ def edit_domain(domain_id):
             warning_days=warning_days,
             status=status,
         )
-        get_audit_log().log("domain_edit", domain.hostname, f"Updated notes/tags/status")
+        get_audit_log().log("domain_edit", domain.hostname, f"Updated notes/tags/status", user=current_username())
         flash("Domain updated.", "success")
         return redirect(url_for("domains.detail", domain_id=domain_id))
 
@@ -310,12 +320,13 @@ def edit_domain(domain_id):
 
 
 @bp.route("/<domain_id>/delete", methods=["POST"])
+@role_required("admin", "editor")
 def delete_domain(domain_id):
     registry = get_domain_registry()
     domain = registry.get(domain_id)
     hostname = domain.hostname if domain else domain_id
     if registry.remove(domain_id):
-        get_audit_log().log("domain_delete", hostname)
+        get_audit_log().log("domain_delete", hostname, user=current_username())
         flash("Domain deleted.", "success")
     else:
         flash("Domain not found.", "danger")
@@ -323,6 +334,7 @@ def delete_domain(domain_id):
 
 
 @bp.route("/<domain_id>/refresh", methods=["POST"])
+@role_required("admin", "editor")
 def refresh_domain(domain_id):
     registry = get_domain_registry()
     domain = registry.get(domain_id)
@@ -364,12 +376,13 @@ def refresh_domain(domain_id):
         status=domain.status,
         last_checked=domain.last_checked,
     )
-    get_audit_log().log("domain_refresh", domain.hostname, f"SSL: {domain.ssl_status or 'unknown'}, Days: {domain.ssl_days_remaining}")
+    get_audit_log().log("domain_refresh", domain.hostname, f"SSL: {domain.ssl_status or 'unknown'}, Days: {domain.ssl_days_remaining}", user=current_username())
     flash(f"Refreshed {domain.hostname}.", "success")
     return redirect(url_for("domains.detail", domain_id=domain_id))
 
 
 @bp.route("/refresh-all", methods=["POST"])
+@role_required("admin", "editor")
 def refresh_all():
     """Trigger background bulk refresh of all domains."""
     from web.scheduler import scheduler
@@ -385,7 +398,7 @@ def refresh_all():
     audit = get_audit_log()
     registry = get_domain_registry()
     count = len(registry.list_all())
-    audit.log("domain_bulk_refresh", "all", f"Triggered for {count} domains")
+    audit.log("domain_bulk_refresh", "all", f"Triggered for {count} domains", user=current_username())
 
     flash(f"Bulk refresh started in background for {count} domains.", "info")
     return redirect(url_for("domains.list_domains"))
@@ -429,6 +442,7 @@ def _background_refresh_all():
 
 
 @bp.route("/export")
+@login_required
 def export_domains():
     """Export domains list as CSV."""
     import csv
@@ -460,7 +474,7 @@ def export_domains():
             d.last_checked.strftime("%Y-%m-%d %H:%M") if d.last_checked else "",
         ])
 
-    get_audit_log().log("export", "domains", f"Exported {len(domains)} domains as CSV")
+    get_audit_log().log("export", "domains", f"Exported {len(domains)} domains as CSV", user=current_username())
     return Response(
         output.getvalue(),
         mimetype="text/csv",
@@ -469,6 +483,7 @@ def export_domains():
 
 
 @bp.route("/azure-resources/export")
+@login_required
 def export_azure_resources():
     """Export Azure resource bindings as CSV."""
     import csv
@@ -504,6 +519,7 @@ def export_azure_resources():
 
 
 @bp.route("/discover", methods=["GET", "POST"])
+@role_required("admin", "editor")
 def discover():
     results = None
     root_domain = ""
@@ -556,6 +572,7 @@ def discover():
 
 
 @bp.route("/<domain_id>/letsencrypt", methods=["POST"])
+@role_required("admin", "editor")
 def issue_letsencrypt(domain_id):
     """Issue a Let's Encrypt certificate for a domain."""
     registry = get_domain_registry()
@@ -580,7 +597,7 @@ def issue_letsencrypt(domain_id):
             le_auto_renew=auto_renew,
             le_challenge_type=challenge_type,
         )
-        get_audit_log().log("certificate_issue", domain.hostname, f"Let's Encrypt ({challenge_type})")
+        get_audit_log().log("certificate_issue", domain.hostname, f"Let's Encrypt ({challenge_type})", user=current_username())
         flash(f"Let's Encrypt certificate issued for {domain.hostname}.", "success")
     else:
         flash(f"Let's Encrypt failed: {result.error}", "danger")
@@ -589,6 +606,7 @@ def issue_letsencrypt(domain_id):
 
 
 @bp.route("/<domain_id>/letsencrypt/renew", methods=["POST"])
+@role_required("admin", "editor")
 def renew_letsencrypt(domain_id):
     """Renew a Let's Encrypt certificate."""
     registry = get_domain_registry()
@@ -611,7 +629,7 @@ def renew_letsencrypt(domain_id):
             le_key_path=result.key_path,
             le_last_renewed=datetime.now(timezone.utc),
         )
-        get_audit_log().log("certificate_renew", domain.hostname, "Let's Encrypt renewal")
+        get_audit_log().log("certificate_renew", domain.hostname, "Let's Encrypt renewal", user=current_username())
         flash(f"Certificate renewed for {domain.hostname}.", "success")
     else:
         flash(f"Renewal failed: {result.error}", "danger")
@@ -620,6 +638,7 @@ def renew_letsencrypt(domain_id):
 
 
 @bp.route("/<domain_id>/letsencrypt/toggle", methods=["POST"])
+@role_required("admin", "editor")
 def toggle_auto_renew(domain_id):
     """Toggle auto-renewal for Let's Encrypt."""
     registry = get_domain_registry()
@@ -662,6 +681,7 @@ def _import_selected(selected: list[str], tag: str) -> int:
 
 
 @bp.route("/import")
+@role_required("admin", "editor")
 def import_domains():
     """Import page with tabs for Azure DNS and Zone Transfer."""
     azure_dns = get_azure_dns_service()
@@ -672,6 +692,7 @@ def import_domains():
 
 
 @bp.route("/import/azure", methods=["POST"])
+@role_required("admin", "editor")
 def import_azure():
     """Import domains from Azure DNS zones."""
     azure_dns = get_azure_dns_service()
@@ -724,14 +745,95 @@ def import_azure():
             return redirect(url_for("domains.import_domains"))
 
         added = _import_selected(selected, "azure-dns")
-        get_audit_log().log("domain_import", "azure-dns", f"Imported {added} domain(s)")
+        get_audit_log().log("domain_import", "azure-dns", f"Imported {added} domain(s)", user=current_username())
         flash(f"Imported {added} domain(s) from Azure DNS.", "success")
+        return redirect(url_for("domains.list_domains"))
+
+    elif action == "list_all_records":
+        # Fetch records from ALL zones at once
+        zones = azure_dns.list_zones()
+        if not zones:
+            flash("No Azure DNS zones found.", "info")
+            return redirect(url_for("domains.import_domains"))
+
+        registry = get_domain_registry()
+        all_records = []
+        seen = set()
+        for zone in zones:
+            try:
+                records = azure_dns.list_records(
+                    zone["name"], zone["resource_group"],
+                    subscription_id=zone["subscription_id"],
+                )
+                for r in records:
+                    if r.hostname not in seen:
+                        seen.add(r.hostname)
+                        already_tracked = registry.get_by_hostname(r.hostname) is not None
+                        all_records.append({
+                            "hostname": r.hostname,
+                            "type": r.record_type,
+                            "value": r.value,
+                            "zone": zone["name"],
+                            "tracked": already_tracked,
+                        })
+            except Exception as e:
+                logger.error("Failed to list records for zone %s: %s", zone["name"], e)
+
+        new_records = [r for r in all_records if not r["tracked"]]
+        if not new_records:
+            flash(f"All {len(all_records)} records across {len(zones)} zone(s) are already tracked.", "info")
+            return redirect(url_for("domains.import_domains"))
+
+        return render_template(
+            "domains/import.html",
+            azure_configured=True,
+            active_tab="azure",
+            azure_all_records=all_records,
+            azure_zone_count=len(zones),
+        )
+
+    elif action == "import_all":
+        # Import all new records from all zones without preview
+        zones = azure_dns.list_zones()
+        if not zones:
+            flash("No Azure DNS zones found.", "info")
+            return redirect(url_for("domains.import_domains"))
+
+        registry = get_domain_registry()
+        hostnames = []
+        seen = set()
+        for zone in zones:
+            try:
+                records = azure_dns.list_records(
+                    zone["name"], zone["resource_group"],
+                    subscription_id=zone["subscription_id"],
+                )
+                for r in records:
+                    if r.hostname not in seen:
+                        seen.add(r.hostname)
+                        if not registry.get_by_hostname(r.hostname):
+                            hostnames.append(r.hostname)
+            except Exception as e:
+                logger.error("Failed to list records for zone %s: %s", zone["name"], e)
+
+        if not hostnames:
+            flash(f"All records across {len(zones)} zone(s) are already tracked.", "info")
+            return redirect(url_for("domains.import_domains"))
+
+        added = _import_selected(hostnames, "azure-dns")
+        get_audit_log().log(
+            "domain_import", "azure-dns",
+            f"Bulk imported {added} domain(s) from {len(zones)} zone(s)",
+            user=current_username(),
+        )
+        flash(f"Imported {added} domain(s) from {len(zones)} Azure DNS zone(s).", "success")
         return redirect(url_for("domains.list_domains"))
 
     return redirect(url_for("domains.import_domains"))
 
 
 @bp.route("/import/zone-transfer", methods=["POST"])
+@role_required("admin", "editor")
 def import_zone_transfer():
     """Import domains via DNS zone transfer (AXFR)."""
     action = request.form.get("action", "transfer")
@@ -784,7 +886,7 @@ def import_zone_transfer():
             return redirect(url_for("domains.import_domains"))
 
         added = _import_selected(selected, "zone-transfer")
-        get_audit_log().log("domain_import", "zone-transfer", f"Imported {added} domain(s)")
+        get_audit_log().log("domain_import", "zone-transfer", f"Imported {added} domain(s)", user=current_username())
         flash(f"Imported {added} domain(s) via zone transfer.", "success")
         return redirect(url_for("domains.list_domains"))
 
@@ -792,6 +894,7 @@ def import_zone_transfer():
 
 
 @bp.route("/azure-resources")
+@login_required
 def azure_resources():
     """Azure Resource Scanner page — shows cached results if available."""
     scanner = get_azure_resource_scanner()
@@ -846,6 +949,7 @@ def azure_resources():
 
 
 @bp.route("/azure-resources/scan", methods=["POST"])
+@role_required("admin", "editor")
 def azure_resources_scan():
     """Run Azure resource scan and show results."""
     scanner = get_azure_resource_scanner()
@@ -892,7 +996,7 @@ def azure_resources_scan():
     store = get_azure_scan_store()
     store.save(bindings, summary)
 
-    get_audit_log().log("azure_scan", "manual", f"Found {summary['total']} bindings, {summary['untracked']} untracked")
+    get_audit_log().log("azure_scan", "manual", f"Found {summary['total']} bindings, {summary['untracked']} untracked", user=current_username())
 
     return render_template(
         "domains/azure_resources.html",
