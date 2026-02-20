@@ -92,6 +92,30 @@ def _run_scheduled_checks():
         except Exception:
             logger.exception("Failed to log scheduled check to audit")
 
+        # Threshold-based SSL expiry notifications
+        # - One-time email at 30 days
+        # - One-time email at 15 days
+        # - Daily email for domains below 15 days
+        try:
+            from web.services import (
+                get_notification_dispatcher,
+                get_ssl_notification_tracker,
+                get_audit_log,
+            )
+            from tracker.ssl_notifier import check_and_notify
+
+            dispatcher = get_notification_dispatcher()
+            tracker = get_ssl_notification_tracker()
+            audit = get_audit_log()
+            stats = check_and_notify(domains, tracker, dispatcher, audit_log=audit)
+            logger.info(
+                "SSL notifications: 30d=%d, 15d=%d, daily=%d, reset=%d",
+                stats["notified_30"], stats["notified_15"],
+                stats["daily"], stats["reset"],
+            )
+        except Exception:
+            logger.exception("SSL notification dispatch failed")
+
         # Generate and persist SSL / registration expiry alerts
         try:
             from web.services import get_alert_engine
@@ -101,16 +125,6 @@ def _run_scheduled_checks():
             if ssl_alerts:
                 engine.save_history()
                 logger.info("Generated %d domain alert(s)", len(ssl_alerts))
-
-                # Dispatch notifications for unacknowledged alerts
-                try:
-                    from web.services import get_notification_dispatcher
-                    dispatcher = get_notification_dispatcher()
-                    results = dispatcher.dispatch(ssl_alerts)
-                    logger.info("Notification dispatch: %s", results)
-                except Exception:
-                    logger.exception("Notification dispatch failed")
-
         except Exception:
             logger.exception("Failed to generate domain alerts")
 

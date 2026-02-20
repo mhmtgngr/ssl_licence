@@ -16,6 +16,7 @@ LETSENCRYPT_DIR = str(_DATA_DIR / "letsencrypt")
 AZURE_SCAN_PATH = _DATA_DIR / "azure_resources_scan.json"
 AUDIT_LOG_PATH = str(_DATA_DIR / "audit_log.json")
 USERS_PATH = str(_DATA_DIR / "users.json")
+SSL_NOTIFICATIONS_PATH = str(_DATA_DIR / "ssl_notifications.json")
 
 
 def get_registry():
@@ -168,6 +169,11 @@ def get_audit_log():
 def get_user_store():
     from tracker.user import UserStore
     return UserStore(USERS_PATH)
+
+
+def get_ssl_notification_tracker():
+    from tracker.ssl_notifier import SslNotificationTracker
+    return SslNotificationTracker(SSL_NOTIFICATIONS_PATH)
 
 
 def get_cert_checks_store():
