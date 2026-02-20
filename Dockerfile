@@ -11,4 +11,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["gunicorn", "-b", "0.0.0.0:5000", "-w", "2", "--timeout", "300", "web:create_app()"]
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "-w", "2", "--timeout", "300", "--limit-request-field_size", "16384", "web:create_app()"]
