@@ -19,26 +19,45 @@
 {# Summary cards #}
 <div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="card card-stat text-bg-primary">
+        <a href="{{ url_for('domains.list_domains') }}" class="text-decoration-none">
+        <div class="card card-stat text-bg-primary {{ 'border border-3 border-dark' if not ssl_status_filter and not expiry_range_filter }}">
             <div class="card-body"><h6><i class="bi bi-globe2"></i> Total Domains</h6><h2>{{ summary.total_domains }}</h2></div>
         </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="card card-stat text-bg-success">
+        <a href="{{ url_for('domains.list_domains', ssl_status='ok') }}" class="text-decoration-none">
+        <div class="card card-stat text-bg-success {{ 'border border-3 border-dark' if ssl_status_filter == 'ok' }}">
             <div class="card-body"><h6><i class="bi bi-shield-check"></i> SSL OK</h6><h2>{{ summary.ssl_ok }}</h2></div>
         </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="card card-stat text-bg-warning">
+        <a href="{{ url_for('domains.list_domains', ssl_status='warning') }}" class="text-decoration-none">
+        <div class="card card-stat text-bg-warning {{ 'border border-3 border-dark' if ssl_status_filter == 'warning' }}">
             <div class="card-body"><h6><i class="bi bi-exclamation-triangle"></i> SSL Expiring</h6><h2>{{ summary.ssl_warning }}</h2></div>
         </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="card card-stat text-bg-danger">
+        <a href="{{ url_for('domains.list_domains', ssl_status='fail') }}" class="text-decoration-none">
+        <div class="card card-stat text-bg-danger {{ 'border border-3 border-dark' if ssl_status_filter in ('fail', 'expired') }}">
             <div class="card-body"><h6><i class="bi bi-x-circle"></i> SSL Expired/Fail</h6><h2>{{ summary.ssl_expired }}</h2></div>
         </div>
+        </a>
     </div>
 </div>
+
+{% if active_filters %}
+<div class="mb-3">
+    <span class="text-muted small me-2">Filtered by:</span>
+    {% for label, value in active_filters %}
+    <span class="badge bg-primary me-1">{{ label }}: {{ value }}</span>
+    {% endfor %}
+    <a href="{{ url_for('domains.list_domains') }}" class="badge bg-secondary text-decoration-none ms-1">Clear All</a>
+    <span class="text-muted small ms-2">({{ domains|length }} result{{ 's' if domains|length != 1 }})</span>
+</div>
+{% endif %}
 
 {# Filters #}
 <form method="get" class="filter-bar row g-2 mb-4 align-items-center">
@@ -51,6 +70,15 @@
             {% for s in DomainStatus %}
             <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ s.value|replace('_', ' ')|title }}</option>
             {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <select name="ssl_status" class="form-select form-select-sm">
+            <option value="">All SSL</option>
+            <option value="ok" {% if ssl_status_filter == 'ok' %}selected{% endif %}>OK</option>
+            <option value="warning" {% if ssl_status_filter == 'warning' %}selected{% endif %}>Warning</option>
+            <option value="expired" {% if ssl_status_filter == 'expired' %}selected{% endif %}>Expired</option>
+            <option value="fail" {% if ssl_status_filter == 'fail' %}selected{% endif %}>Fail</option>
         </select>
     </div>
     <div class="col-auto">
@@ -86,16 +114,26 @@
         </select>
     </div>
     <div class="col-auto">
+        <select name="expiry_range" class="form-select form-select-sm">
+            <option value="">All Expiry</option>
+            <option value="0-30" {% if expiry_range_filter == '0-30' %}selected{% endif %}>0–30 days</option>
+            <option value="31-60" {% if expiry_range_filter == '31-60' %}selected{% endif %}>31–60 days</option>
+            <option value="61-90" {% if expiry_range_filter == '61-90' %}selected{% endif %}>61–90 days</option>
+            <option value="91-180" {% if expiry_range_filter == '91-180' %}selected{% endif %}>91–180 days</option>
+            <option value="180+" {% if expiry_range_filter == '180+' %}selected{% endif %}>180+ days</option>
+        </select>
+    </div>
+    <div class="col-auto">
         <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
-        {% if q or status_filter or type_filter or parent_filter or cert_type_filter or ca_filter %}
+        {% if q or status_filter or type_filter or parent_filter or cert_type_filter or ca_filter or ssl_status_filter or expiry_range_filter or hosting_filter %}
         <a href="{{ url_for('domains.list_domains') }}" class="btn btn-outline-secondary btn-sm">Clear</a>
         {% endif %}
     </div>
     <div class="col-auto ms-auto">
         <div class="btn-group btn-group-sm">
-            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter) }}" class="btn btn-outline-secondary {% if not group_by %}active{% endif %}">Flat</a>
-            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, group_by='parent') }}" class="btn btn-outline-secondary {% if group_by == 'parent' %}active{% endif %}">By Parent</a>
-            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, group_by='tag') }}" class="btn btn-outline-secondary {% if group_by == 'tag' %}active{% endif %}">By Tag</a>
+            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, ssl_status=ssl_status_filter, expiry_range=expiry_range_filter) }}" class="btn btn-outline-secondary {% if not group_by %}active{% endif %}">Flat</a>
+            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, ssl_status=ssl_status_filter, expiry_range=expiry_range_filter, group_by='parent') }}" class="btn btn-outline-secondary {% if group_by == 'parent' %}active{% endif %}">By Parent</a>
+            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, ssl_status=ssl_status_filter, expiry_range=expiry_range_filter, group_by='tag') }}" class="btn btn-outline-secondary {% if group_by == 'tag' %}active{% endif %}">By Tag</a>
         </div>
     </div>
 </form>

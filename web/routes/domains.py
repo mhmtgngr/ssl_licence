@@ -89,6 +89,9 @@ def list_domains():
     parent_filter = request.args.get("parent", "")
     cert_type_filter = request.args.get("cert_type", "")
     ca_filter = request.args.get("ca", "")
+    ssl_status_filter = request.args.get("ssl_status", "")
+    expiry_range_filter = request.args.get("expiry_range", "")
+    hosting_filter = request.args.get("hosting", "")
     q = request.args.get("q", "").strip().lower()
 
     if status_filter:
@@ -110,6 +113,27 @@ def list_domains():
             pass
     if ca_filter:
         domains = [d for d in domains if d.ssl_ca_name == ca_filter]
+    if ssl_status_filter:
+        domains = [d for d in domains if d.ssl_status == ssl_status_filter]
+    if expiry_range_filter:
+        def _in_range(d):
+            days = d.ssl_days_remaining
+            if days is None or days < 0:
+                return False
+            if expiry_range_filter == "0-30":
+                return days <= 30
+            elif expiry_range_filter == "31-60":
+                return 31 <= days <= 60
+            elif expiry_range_filter == "61-90":
+                return 61 <= days <= 90
+            elif expiry_range_filter == "91-180":
+                return 91 <= days <= 180
+            elif expiry_range_filter == "180+":
+                return days > 180
+            return True
+        domains = [d for d in domains if _in_range(d)]
+    if hosting_filter:
+        domains = [d for d in domains if d.hosting_provider == hosting_filter]
     if q:
         domains = [
             d for d in domains
@@ -160,6 +184,18 @@ def list_domains():
                 grouped_domains.setdefault("(Untagged)", []).append(d)
         grouped_domains = dict(sorted(grouped_domains.items()))
 
+    # Active filter description for display
+    active_filters = []
+    if ssl_status_filter:
+        active_filters.append(("SSL Status", ssl_status_filter.upper()))
+    if expiry_range_filter:
+        labels = {"0-30": "0–30 days", "31-60": "31–60 days", "61-90": "61–90 days", "91-180": "91–180 days", "180+": "180+ days"}
+        active_filters.append(("Expiry Range", labels.get(expiry_range_filter, expiry_range_filter)))
+    if ca_filter:
+        active_filters.append(("CA", ca_filter))
+    if hosting_filter:
+        active_filters.append(("Hosting", hosting_filter))
+
     return render_template(
         "domains/list.html",
         domains=domains,
@@ -171,6 +207,10 @@ def list_domains():
         parent_filter=parent_filter,
         cert_type_filter=cert_type_filter,
         ca_filter=ca_filter,
+        ssl_status_filter=ssl_status_filter,
+        expiry_range_filter=expiry_range_filter,
+        hosting_filter=hosting_filter,
+        active_filters=active_filters,
         q=q,
         sort_field=sort_field,
         sort_order=sort_order,

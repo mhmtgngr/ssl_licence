@@ -45,6 +45,7 @@
 {# Domain / SSL summary #}
 <div class="row g-3 mb-4">
     <div class="col-md-3">
+        <a href="{{ url_for('domains.list_domains') }}" class="text-decoration-none">
         <div class="card card-stat text-bg-dark">
             <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-globe2"></i> Tracked Domains</h6>
@@ -52,8 +53,10 @@
                 <small>{{ domain_summary.parent_domains }} root domain{{ 's' if domain_summary.parent_domains != 1 }}</small>
             </div>
         </div>
+        </a>
     </div>
     <div class="col-md-3">
+        <a href="{{ url_for('domains.list_domains', ssl_status='ok') }}" class="text-decoration-none">
         <div class="card card-stat text-bg-success">
             <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-shield-check"></i> SSL OK</h6>
@@ -61,8 +64,10 @@
                 <small>certificates valid</small>
             </div>
         </div>
+        </a>
     </div>
     <div class="col-md-3">
+        <a href="{{ url_for('domains.list_domains', ssl_status='warning') }}" class="text-decoration-none">
         <div class="card card-stat text-bg-warning">
             <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-exclamation-triangle"></i> SSL Expiring</h6>
@@ -70,8 +75,10 @@
                 <small>within warning threshold</small>
             </div>
         </div>
+        </a>
     </div>
     <div class="col-md-3">
+        <a href="{{ url_for('domains.list_domains', ssl_status='fail') }}" class="text-decoration-none">
         <div class="card card-stat text-bg-danger">
             <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-x-circle"></i> SSL Issues</h6>
@@ -79,6 +86,7 @@
                 <small>expired or unreachable</small>
             </div>
         </div>
+        </a>
     </div>
 </div>
 
@@ -191,6 +199,11 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    var domainsUrl = "{{ url_for('domains.list_domains') }}";
+    var sslStatusMap = {0: 'ok', 1: 'warning', 2: 'expired', 3: 'fail'};
+    var expiryRangeMap = {0: '0-30', 1: '31-60', 2: '61-90', 3: '91-180', 4: '180+'};
+    var caLabels = {{ ca_chart_data.keys()|list|tojson }};
+
     new Chart(document.getElementById('sslStatusChart'), {
         type: 'doughnut',
         data: {
@@ -200,7 +213,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 backgroundColor: ['#198754', '#ffc107', '#dc3545', '#212529']
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            onClick: function(e, elements) {
+                if (elements.length > 0) {
+                    window.location.href = domainsUrl + '?ssl_status=' + sslStatusMap[elements[0].index];
+                }
+            }
+        }
     });
     new Chart(document.getElementById('expiryChart'), {
         type: 'bar',
@@ -212,19 +233,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 backgroundColor: ['#dc3545', '#fd7e14', '#ffc107', '#198754', '#0d6efd']
             }]
         },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } },
+            onClick: function(e, elements) {
+                if (elements.length > 0) {
+                    window.location.href = domainsUrl + '?expiry_range=' + expiryRangeMap[elements[0].index];
+                }
+            }
+        }
     });
     new Chart(document.getElementById('caChart'), {
         type: 'bar',
         data: {
-            labels: {{ ca_chart_data.keys()|list|tojson }},
+            labels: caLabels,
             datasets: [{
                 label: 'Domains',
                 data: {{ ca_chart_data.values()|list|tojson }},
                 backgroundColor: '#0d6efd'
             }]
         },
-        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true } },
+            onClick: function(e, elements) {
+                if (elements.length > 0) {
+                    window.location.href = domainsUrl + '?ca=' + encodeURIComponent(caLabels[elements[0].index]);
+                }
+            }
+        }
     });
 });
 </script>
