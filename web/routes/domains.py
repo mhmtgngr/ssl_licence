@@ -168,7 +168,7 @@ def list_domains():
     )
 
     # Grouping
-    group_by = request.args.get("group_by", "")
+    group_by = request.args.get("group_by", "parent")
     grouped_domains = {}
     if group_by == "parent":
         for d in domains:

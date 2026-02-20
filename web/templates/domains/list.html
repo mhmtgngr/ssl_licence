@@ -131,7 +131,7 @@
     </div>
     <div class="col-auto ms-auto">
         <div class="btn-group btn-group-sm">
-            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, ssl_status=ssl_status_filter, expiry_range=expiry_range_filter) }}" class="btn btn-outline-secondary {% if not group_by %}active{% endif %}">Flat</a>
+            <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, ssl_status=ssl_status_filter, expiry_range=expiry_range_filter, group_by='flat') }}" class="btn btn-outline-secondary {% if group_by == 'flat' %}active{% endif %}">Flat</a>
             <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, ssl_status=ssl_status_filter, expiry_range=expiry_range_filter, group_by='parent') }}" class="btn btn-outline-secondary {% if group_by == 'parent' %}active{% endif %}">By Parent</a>
             <a href="{{ url_for('domains.list_domains', q=q, status=status_filter, type=type_filter, parent=parent_filter, cert_type=cert_type_filter, ca=ca_filter, ssl_status=ssl_status_filter, expiry_range=expiry_range_filter, group_by='tag') }}" class="btn btn-outline-secondary {% if group_by == 'tag' %}active{% endif %}">By Tag</a>
         </div>
