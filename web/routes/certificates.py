@@ -44,16 +44,20 @@ def list_certs():
 def check_remote():
     results = []
     domains_input = ""
+    port_input = 443
     if request.method == "POST":
         domains_input = request.form.get("domains", "")
+        port_input = int(request.form.get("port", 443) or 443)
         domains = [d.strip() for d in domains_input.replace(",", "\n").splitlines() if d.strip()]
         if domains:
             monitor = get_certificate_monitor()
             store = get_cert_checks_store()
             for domain in domains:
-                status = monitor.check_remote(domain)
+                status = monitor.check_remote(domain, port=port_input)
+                port_label = f":{port_input}" if port_input != 443 else ""
                 entry = {
                     "domain": domain,
+                    "port": port_input,
                     "checked_at": datetime.now(timezone.utc).isoformat(),
                 }
                 if status:
@@ -67,20 +71,24 @@ def check_remote():
                 else:
                     entry.update({
                         "status": "fail",
-                        "error": f"Could not connect to {domain}",
+                        "error": f"Could not connect to {domain}{port_label}",
                     })
                 store.add(entry)
                 results.append({
                     "domain": domain,
+                    "port": port_input,
                     "status": status,
-                    "error": None if status else f"Could not connect to {domain}",
+                    "error": None if status else f"Could not connect to {domain}{port_label}",
                 })
         else:
             flash("Please enter at least one domain.", "warning")
+    from config.settings import SSL_PORTS
     return render_template(
         "certificates/check.html",
         results=results,
         domains_input=domains_input,
+        port_input=port_input,
+        ssl_ports=SSL_PORTS,
     )
 
 

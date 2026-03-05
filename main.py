@@ -74,15 +74,17 @@ def cmd_ssl_list(args):
 def cmd_ssl_check(args):
     """Check certificate expiry for remote domains."""
     monitor = CertificateMonitor()
-    statuses = monitor.check_multiple(args.domains)
+    port = args.port or 443
+    statuses = monitor.check_multiple(args.domains, port=port)
+    port_label = f":{port}" if port != 443 else ""
     for s in statuses:
         tag = "EXPIRED" if s.is_expired else "OK"
         if not s.is_expired and s.days_remaining <= 30:
             tag = "WARNING"
-        print(f"[{tag:7s}] {s.domain:30s} {s.days_remaining:4d} days remaining")
+        print(f"[{tag:7s}] {s.domain}{port_label:30s} {s.days_remaining:4d} days remaining")
     failed = set(args.domains) - {s.domain for s in statuses}
     for d in failed:
-        print(f"[FAIL   ] {d:30s} could not connect")
+        print(f"[FAIL   ] {d}{port_label:30s} could not connect")
 
 
 # ============================================================
@@ -441,6 +443,10 @@ def build_parser():
 
     chk = ssl_sub.add_parser("check", help="Check domain certificates")
     chk.add_argument("domains", nargs="+", help="Domains to check")
+    chk.add_argument(
+        "--port", type=int, default=None,
+        help="TLS port to connect to (default 443). Common: 8443, 465, 993, 995, 636",
+    )
     chk.set_defaults(func=cmd_ssl_check)
 
     # --- Licence commands ---

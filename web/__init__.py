@@ -76,7 +76,45 @@ def create_app():
 
     @app.route("/health")
     def health_check():
-        return jsonify({"status": "healthy", "version": "0.1.0"}), 200
+        from datetime import datetime, timezone as tz
+        from config.settings import MONITOR_CHECK_INTERVAL_HOURS
+
+        health = {
+            "status": "healthy",
+            "version": "0.1.0",
+            "timestamp": datetime.now(tz.utc).isoformat(),
+            "monitor_interval_hours": MONITOR_CHECK_INTERVAL_HOURS,
+        }
+
+        # Domain registry stats (if available)
+        try:
+            from web.services import get_domain_registry
+            registry = get_domain_registry()
+            summary = registry.summary()
+            health["domains"] = {
+                "total": summary["total_domains"],
+                "ssl_ok": summary["ssl_ok"],
+                "ssl_warning": summary["ssl_warning"],
+                "ssl_expired": summary["ssl_expired"],
+            }
+        except Exception:
+            health["domains"] = None
+
+        # Scheduler status
+        try:
+            from web.scheduler import scheduler
+            health["scheduler"] = {
+                "running": scheduler.running,
+                "jobs": len(scheduler.get_jobs()) if scheduler.running else 0,
+            }
+        except Exception:
+            health["scheduler"] = None
+
+        # Determine overall status
+        if health.get("domains") and health["domains"]["ssl_expired"] > 0:
+            health["status"] = "degraded"
+
+        return jsonify(health), 200
 
     @app.context_processor
     def inject_current_user():

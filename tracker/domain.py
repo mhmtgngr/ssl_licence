@@ -69,6 +69,7 @@ class Domain:
     status: DomainStatus = DomainStatus.ACTIVE
 
     # SSL info (populated on check)
+    ssl_port: int = 443              # TLS port to check (443, 8443, 993, etc.)
     ssl_issuer: str = ""
     ssl_expiry: Optional[datetime] = None
     ssl_days_remaining: Optional[int] = None
@@ -152,6 +153,7 @@ class Domain:
             "parent_domain": self.parent_domain,
             "domain_type": self.domain_type.value,
             "status": self.status.value,
+            "ssl_port": self.ssl_port,
             "ssl_issuer": self.ssl_issuer,
             "ssl_expiry": fmt_dt(self.ssl_expiry),
             "ssl_days_remaining": self.ssl_days_remaining,
@@ -204,6 +206,7 @@ class Domain:
             parent_domain=data.get("parent_domain", ""),
             domain_type=DomainType(data.get("domain_type", "root")),
             status=DomainStatus(data.get("status", "active")),
+            ssl_port=data.get("ssl_port", 443),
             ssl_issuer=data.get("ssl_issuer", ""),
             ssl_expiry=parse_dt(data.get("ssl_expiry")),
             ssl_days_remaining=data.get("ssl_days_remaining"),

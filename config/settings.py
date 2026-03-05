@@ -14,6 +14,26 @@ SSL_KEYS_DIR = SSL_DIR / "keys"
 SSL_CSR_DIR = SSL_DIR / "csr"
 DEFAULT_KEY_SIZE = 2048
 DEFAULT_CERT_VALIDITY_DAYS = 365
+DEFAULT_SSL_PORT = int(os.environ.get("DEFAULT_SSL_PORT", "443"))
+
+# Well-known SSL/TLS ports — services that commonly use TLS on non-443 ports
+SSL_PORTS = {
+    443: "HTTPS",
+    8443: "HTTPS (Alt / Tomcat)",
+    465: "SMTPS",
+    587: "SMTP Submission (STARTTLS)",
+    993: "IMAPS",
+    995: "POP3S",
+    636: "LDAPS",
+    853: "DNS over TLS",
+    990: "FTPS Control",
+    989: "FTPS Data",
+    5223: "XMPP over SSL",
+    6443: "Kubernetes API",
+    2083: "cPanel SSL",
+    2096: "cPanel Webmail SSL",
+    3389: "RDP (TLS)",
+}
 
 # Licence defaults
 LICENCE_STORAGE_PATH = PROJECT_ROOT / "data" / "licences.json"
@@ -21,7 +41,7 @@ LICENCE_SIGNING_SECRET = os.environ.get("LICENCE_SECRET", "change-me-in-producti
 
 # Monitoring
 CERT_EXPIRY_WARNING_DAYS = 30
-MONITOR_CHECK_INTERVAL_HOURS = 24
+MONITOR_CHECK_INTERVAL_HOURS = int(os.environ.get("MONITOR_CHECK_INTERVAL_HOURS", "1"))
 
 # Let's Encrypt / ACME
 ACME_EMAIL = os.environ.get("ACME_EMAIL", "")

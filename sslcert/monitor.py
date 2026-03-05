@@ -194,11 +194,13 @@ class CertificateMonitor:
         except Exception:
             return None
 
-    def check_multiple(self, domains: list[str]) -> list[CertStatus]:
+    def check_multiple(
+        self, domains: list[str], port: int = DEFAULT_PORT
+    ) -> list[CertStatus]:
         """Check multiple domains and return their certificate statuses."""
         results = []
         for domain in domains:
-            status = self.check_remote(domain)
+            status = self.check_remote(domain, port=port)
             if status:
                 results.append(status)
         return results

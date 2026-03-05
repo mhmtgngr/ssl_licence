@@ -28,7 +28,8 @@ bp = Blueprint("domains", __name__)
 
 def _update_domain_ssl(domain: Domain, monitor) -> None:
     """Check SSL for a domain and update its fields."""
-    status = monitor.check_remote(domain.hostname)
+    port = getattr(domain, "ssl_port", 443) or 443
+    status = monitor.check_remote(domain.hostname, port=port)
     if status:
         domain.ssl_issuer = status.issuer
         domain.ssl_expiry = status.not_after
@@ -239,6 +240,7 @@ def add_domain():
             t.strip() for t in request.form.get("tags", "").split(",") if t.strip()
         ]
         domain.warning_days = int(request.form.get("warning_days", 30))
+        domain.ssl_port = int(request.form.get("ssl_port", 443) or 443)
         domain.classify()
 
         # Auto-lookup DNS and SSL
@@ -343,6 +345,7 @@ def edit_domain(domain_id):
             t.strip() for t in request.form.get("tags", "").split(",") if t.strip()
         ]
         warning_days = int(request.form.get("warning_days", 30))
+        ssl_port = int(request.form.get("ssl_port", domain.ssl_port) or 443)
         status = request.form.get("status", domain.status.value)
         try:
             status = DomainStatus(status)
@@ -354,6 +357,7 @@ def edit_domain(domain_id):
             notes=notes,
             tags=tags,
             warning_days=warning_days,
+            ssl_port=ssl_port,
             status=status,
         )
         get_audit_log().log("domain_edit", domain.hostname, f"Updated notes/tags/status", user=current_username())
