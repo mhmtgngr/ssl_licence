@@ -23,6 +23,12 @@ def main():
         default=CERT_EXPIRY_WARNING_DAYS,
         help="Warning threshold in days",
     )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=443,
+        help="SSL/TLS port to check (default 443, e.g. 8443, 993, 636)",
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument(
         "--output", help="Save report to file (implies --json)"
@@ -31,7 +37,7 @@ def main():
     args = parser.parse_args()
     monitor = CertificateMonitor()
 
-    statuses = monitor.check_multiple(args.domains)
+    statuses = monitor.check_multiple(args.domains, port=args.port)
 
     if args.output:
         monitor.export_report(statuses, args.output)

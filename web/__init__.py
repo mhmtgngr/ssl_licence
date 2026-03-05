@@ -77,13 +77,16 @@ def create_app():
     @app.route("/health")
     def health_check():
         from datetime import datetime, timezone as tz
-        from config.settings import MONITOR_CHECK_INTERVAL_HOURS
+        from config.settings import MONITOR_CHECK_INTERVAL_HOURS, SSL_PORTS
 
         health = {
             "status": "healthy",
             "version": "0.1.0",
             "timestamp": datetime.now(tz.utc).isoformat(),
             "monitor_interval_hours": MONITOR_CHECK_INTERVAL_HOURS,
+            "ssl_ports": [
+                {"port": p, "description": d} for p, d in SSL_PORTS.items()
+            ],
         }
 
         # Domain registry stats (if available)
@@ -91,22 +94,40 @@ def create_app():
             from web.services import get_domain_registry
             registry = get_domain_registry()
             summary = registry.summary()
+            all_domains = registry.list_all()
+
+            # Collect port distribution
+            port_counts = {}
+            for d in all_domains:
+                port = d.ssl_port or 443
+                port_counts[port] = port_counts.get(port, 0) + 1
+
             health["domains"] = {
                 "total": summary["total_domains"],
                 "ssl_ok": summary["ssl_ok"],
                 "ssl_warning": summary["ssl_warning"],
                 "ssl_expired": summary["ssl_expired"],
+                "port_distribution": port_counts,
             }
         except Exception:
             health["domains"] = None
 
-        # Scheduler status
+        # Scheduler status with next run times
         try:
             from web.scheduler import scheduler
-            health["scheduler"] = {
+            sched_info = {
                 "running": scheduler.running,
                 "jobs": len(scheduler.get_jobs()) if scheduler.running else 0,
             }
+            if scheduler.running:
+                jobs = []
+                for job in scheduler.get_jobs():
+                    jobs.append({
+                        "id": job.id,
+                        "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
+                    })
+                sched_info["job_details"] = jobs
+            health["scheduler"] = sched_info
         except Exception:
             health["scheduler"] = None
 

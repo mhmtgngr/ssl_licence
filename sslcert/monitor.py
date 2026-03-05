@@ -205,6 +205,35 @@ class CertificateMonitor:
                 results.append(status)
         return results
 
+    def check_all_ports(
+        self, domain: str, ports: dict[int, str] | None = None, timeout: int = DEFAULT_TIMEOUT
+    ) -> list[dict]:
+        """Scan a domain across all known SSL/TLS ports.
+
+        Args:
+            domain: Hostname to scan.
+            ports: Port-to-description mapping (defaults to SSL_PORTS from config).
+            timeout: Connection timeout per port.
+
+        Returns:
+            List of dicts with port, description, status (CertStatus or None),
+            and reachable flag.
+        """
+        if ports is None:
+            from config.settings import SSL_PORTS
+            ports = SSL_PORTS
+
+        results = []
+        for port, description in ports.items():
+            status = self.check_remote(domain, port=port, timeout=timeout)
+            results.append({
+                "port": port,
+                "description": description,
+                "status": status,
+                "reachable": status is not None,
+            })
+        return results
+
     def get_expiring_soon(
         self, domains: list[str], days_threshold: int = 30
     ) -> list[CertStatus]:

@@ -159,8 +159,9 @@ def check_tracked_domains() -> list[dict]:
             "previous_ip": domain.ip_address,
         }
 
-        # SSL check
-        status = monitor.check_remote(domain.hostname)
+        # SSL check — use the per-domain port (may be 8443, 993, etc.)
+        port = domain.ssl_port or 443
+        status = monitor.check_remote(domain.hostname, port=port)
         if status:
             ssl_status = "expired" if status.is_expired else (
                 "warning" if status.days_remaining <= domain.warning_days else "ok"

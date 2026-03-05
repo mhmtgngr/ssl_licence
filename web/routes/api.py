@@ -235,6 +235,7 @@ def add_domain():
     domain.notes = data.get("notes", "")
     domain.tags = data.get("tags", [])
     domain.warning_days = int(data.get("warning_days", 30))
+    domain.ssl_port = int(data.get("ssl_port", 443) or 443)
     domain.classify()
     domain.last_checked = datetime.now(timezone.utc)
     registry.add(domain)
@@ -351,10 +352,20 @@ def check_certificates():
     store = get_cert_checks_store()
     results = []
 
-    for domain in domains:
-        status = monitor.check_remote(domain)
+    default_port = data.get("port", 443)
+    for item in domains:
+        # Accept either a string or {"domain": ..., "port": ...}
+        if isinstance(item, dict):
+            domain = item.get("domain", "")
+            port = int(item.get("port", default_port))
+        else:
+            domain = item
+            port = int(default_port)
+
+        status = monitor.check_remote(domain, port=port)
         entry = {
             "domain": domain,
+            "port": port,
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
         if status:
@@ -380,6 +391,49 @@ def check_certificates():
 def certificate_history():
     store = get_cert_checks_store()
     return jsonify(store.list_all())
+
+
+@bp.route("/certificates/port-scan", methods=["POST"])
+@role_required("admin", "editor")
+def port_scan_certificates():
+    """Scan a domain across all known SSL/TLS ports."""
+    data = request.get_json(silent=True) or {}
+    domain = data.get("domain", "").strip()
+    if not domain:
+        return _error("domain is required")
+
+    timeout = int(data.get("timeout", 5))
+    monitor = get_certificate_monitor()
+    results = monitor.check_all_ports(domain, timeout=timeout)
+    reachable = [r for r in results if r["reachable"]]
+
+    return jsonify({
+        "domain": domain,
+        "scanned_at": datetime.now(timezone.utc).isoformat(),
+        "ports_scanned": len(results),
+        "ports_reachable": len(reachable),
+        "results": [
+            {
+                "port": r["port"],
+                "description": r["description"],
+                "reachable": r["reachable"],
+                "days_remaining": r["status"].days_remaining if r["status"] else None,
+                "issuer": r["status"].issuer if r["status"] else None,
+                "not_after": r["status"].not_after.isoformat() if r["status"] else None,
+                "is_expired": r["status"].is_expired if r["status"] else None,
+            }
+            for r in results
+        ],
+    })
+
+
+@bp.route("/ssl-ports")
+def list_ssl_ports():
+    """Return the list of known SSL/TLS ports."""
+    from config.settings import SSL_PORTS
+    return jsonify({
+        "ports": [{"port": p, "description": d} for p, d in SSL_PORTS.items()]
+    })
 
 
 @bp.route("/certificates/chain-check", methods=["POST"])

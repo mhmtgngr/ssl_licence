@@ -130,6 +130,25 @@ class TestAPICertificates(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_port_scan_missing_domain(self):
+        response = self.client.post(
+            "/api/v1/certificates/port-scan",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_ssl_ports_endpoint(self):
+        response = self.client.get("/api/v1/ssl-ports")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertIn("ports", data)
+        ports = {p["port"] for p in data["ports"]}
+        self.assertIn(443, ports)
+        self.assertIn(8443, ports)
+        self.assertIn(993, ports)
+        self.assertIn(636, ports)
+
 
 class TestAPILicences(unittest.TestCase):
 

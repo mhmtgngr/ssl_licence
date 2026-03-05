@@ -50,6 +50,26 @@ class TestHealthEndpoint(unittest.TestCase):
         # domains key should exist
         self.assertIn("domains", data)
 
+    def test_health_has_ssl_ports(self):
+        response = self.client.get("/health")
+        data = response.get_json()
+        self.assertIn("ssl_ports", data)
+        self.assertIsInstance(data["ssl_ports"], list)
+        # Should contain at least HTTPS (443)
+        ports = {p["port"] for p in data["ssl_ports"]}
+        self.assertIn(443, ports)
+        self.assertIn(8443, ports)
+        self.assertIn(993, ports)
+
+    def test_health_ssl_ports_have_description(self):
+        response = self.client.get("/health")
+        data = response.get_json()
+        for entry in data["ssl_ports"]:
+            self.assertIn("port", entry)
+            self.assertIn("description", entry)
+            self.assertIsInstance(entry["port"], int)
+            self.assertIsInstance(entry["description"], str)
+
 
 if __name__ == "__main__":
     unittest.main()

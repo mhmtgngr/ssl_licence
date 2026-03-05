@@ -41,6 +41,29 @@ class TestCertificateMonitor(unittest.TestCase):
         result = CertificateMonitor._classify_cert_type([])
         self.assertEqual(result, "single")
 
+    def test_check_all_ports_returns_list(self):
+        monitor = CertificateMonitor()
+        test_ports = {9999: "Test Port", 9998: "Test Port 2"}
+        results = monitor.check_all_ports(
+            "nonexistent.invalid.test", ports=test_ports, timeout=2
+        )
+        self.assertEqual(len(results), 2)
+        for r in results:
+            self.assertIn("port", r)
+            self.assertIn("description", r)
+            self.assertIn("reachable", r)
+            self.assertFalse(r["reachable"])
+            self.assertIsNone(r["status"])
+
+    def test_check_all_ports_uses_default_ports(self):
+        """check_all_ports should fall back to SSL_PORTS from config."""
+        from config.settings import SSL_PORTS
+        monitor = CertificateMonitor()
+        with patch.object(monitor, 'check_remote', return_value=None) as mock_check:
+            results = monitor.check_all_ports("example.invalid.test")
+            self.assertEqual(len(results), len(SSL_PORTS))
+            self.assertEqual(mock_check.call_count, len(SSL_PORTS))
+
 
 class TestExtractCaName(unittest.TestCase):
 
