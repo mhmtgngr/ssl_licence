@@ -1,6 +1,8 @@
 """User model and JSON-file-backed user store."""
 
 import json
+import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -8,6 +10,10 @@ from enum import Enum
 from pathlib import Path
 
 from werkzeug.security import generate_password_hash, check_password_hash
+
+from sslcert.utils.safe_io import atomic_write_json
+
+logger = logging.getLogger(__name__)
 
 
 class UserRole(str, Enum):
@@ -89,10 +95,14 @@ class UserStore:
         return []
 
     def _save(self, data: list[dict]) -> None:
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        atomic_write_json(self._path, data)
 
     def _ensure_default_admin(self) -> None:
-        """Create a default admin user if no users exist."""
+        """Create a default admin user if no users exist.
+
+        Uses FLASK_ADMIN_PASSWORD env var if set, otherwise falls back to
+        a generated random password that is logged once at startup.
+        """
         data = self._load()
         if not data:
             admin = User(
@@ -100,7 +110,15 @@ class UserStore:
                 role=UserRole.ADMIN,
                 display_name="Administrator",
             )
-            admin.set_password("admin")
+            password = os.environ.get("FLASK_ADMIN_PASSWORD", "")
+            if not password:
+                password = uuid.uuid4().hex[:16]
+                logger.warning(
+                    "No FLASK_ADMIN_PASSWORD set. Default admin password: %s "
+                    "(change immediately via Settings > Users)",
+                    password,
+                )
+            admin.set_password(password)
             self._save([admin.to_dict()])
 
     def get_by_username(self, username: str) -> User | None:

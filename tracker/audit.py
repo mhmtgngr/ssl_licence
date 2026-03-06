@@ -1,11 +1,16 @@
 """Audit log — track user actions across the application."""
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+
+from sslcert.utils.safe_io import atomic_write_json
+
+_logger = logging.getLogger(__name__)
 
 
 class AuditAction(str, Enum):
@@ -110,4 +115,4 @@ class AuditLog:
         return []
 
     def _save(self, data: list[dict]) -> None:
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        atomic_write_json(self._path, data)

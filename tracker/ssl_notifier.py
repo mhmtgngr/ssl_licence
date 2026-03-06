@@ -36,7 +36,8 @@ class SslNotificationTracker:
         return {}
 
     def _save(self, data: dict) -> None:
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        from sslcert.utils.safe_io import atomic_write_json
+        atomic_write_json(self._path, data)
 
     def get_state(self, domain_id: str) -> dict:
         """Return notification state for a domain."""

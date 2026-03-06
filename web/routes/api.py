@@ -53,6 +53,17 @@ def _error(message, status=400):
     return jsonify({"error": message}), status
 
 
+def _paginate(items: list, default_limit: int = 100) -> tuple[list, dict]:
+    """Apply offset/limit pagination to a list. Returns (page_items, meta)."""
+    total = len(items)
+    limit = request.args.get("limit", type=int, default=default_limit)
+    offset = request.args.get("offset", type=int, default=0)
+    limit = max(1, min(limit, 1000))
+    offset = max(0, offset)
+    page = items[offset:offset + limit]
+    return page, {"total": total, "limit": limit, "offset": offset}
+
+
 # ── Products ─────────────────────────────────────────────────────────
 
 @bp.route("/products")
@@ -69,7 +80,8 @@ def list_products():
         products = registry.by_vendor(vendor)
     else:
         products = registry.list_all()
-    return jsonify([p.to_dict() for p in products])
+    page, meta = _paginate(products)
+    return jsonify({"items": [p.to_dict() for p in page], **meta})
 
 
 @bp.route("/products/<product_id>")
@@ -175,7 +187,8 @@ def list_domains():
                     or (d.ip_address and q in d.ip_address)
                     or (d.ssl_ca_name and q in d.ssl_ca_name.lower())]
 
-    return jsonify([d.to_dict() for d in domains])
+    page, meta = _paginate(domains)
+    return jsonify({"items": [d.to_dict() for d in page], **meta})
 
 
 @bp.route("/domains/refresh-all", methods=["POST"])
@@ -313,7 +326,8 @@ def list_alerts():
         level=level, alert_type=alert_type,
         vendor=vendor_filter or None,
     )
-    return jsonify([a.to_dict() for a in alerts])
+    page, meta = _paginate(alerts)
+    return jsonify({"items": [a.to_dict() for a in page], **meta})
 
 
 @bp.route("/alerts/summary")

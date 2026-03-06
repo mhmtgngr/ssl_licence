@@ -224,9 +224,14 @@ def list_domains():
 @role_required("admin", "editor")
 def add_domain():
     if request.method == "POST":
+        from sslcert.utils.safe_io import validate_port, validate_hostname
+
         hostname = request.form.get("hostname", "").strip().lower()
         if not hostname:
             flash("Hostname is required.", "danger")
+            return redirect(url_for("domains.add_domain"))
+        if not validate_hostname(hostname):
+            flash("Invalid hostname format.", "danger")
             return redirect(url_for("domains.add_domain"))
 
         registry = get_domain_registry()
@@ -240,7 +245,7 @@ def add_domain():
             t.strip() for t in request.form.get("tags", "").split(",") if t.strip()
         ]
         domain.warning_days = int(request.form.get("warning_days", 30))
-        domain.ssl_port = int(request.form.get("ssl_port", 443) or 443)
+        domain.ssl_port = validate_port(request.form.get("ssl_port", 443))
         domain.classify()
 
         # Auto-lookup DNS and SSL
@@ -340,12 +345,14 @@ def edit_domain(domain_id):
         return redirect(url_for("domains.list_domains"))
 
     if request.method == "POST":
+        from sslcert.utils.safe_io import validate_port
+
         notes = request.form.get("notes", "")
         tags = [
             t.strip() for t in request.form.get("tags", "").split(",") if t.strip()
         ]
         warning_days = int(request.form.get("warning_days", 30))
-        ssl_port = int(request.form.get("ssl_port", domain.ssl_port) or 443)
+        ssl_port = validate_port(request.form.get("ssl_port", domain.ssl_port))
         status = request.form.get("status", domain.status.value)
         try:
             status = DomainStatus(status)

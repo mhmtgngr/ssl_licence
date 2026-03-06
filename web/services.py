@@ -215,7 +215,8 @@ class AzureScanStore:
                 for b in bindings
             ],
         }
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        from sslcert.utils.safe_io import atomic_write_json
+        atomic_write_json(self._path, data)
 
     def load(self) -> dict | None:
         import json
@@ -258,8 +259,8 @@ class CertCheckStore:
         return []
 
     def _save(self, data: list[dict]) -> None:
-        import json
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        from sslcert.utils.safe_io import atomic_write_json
+        atomic_write_json(self._path, data)
 
     def add(self, entry: dict) -> None:
         data = self._load()

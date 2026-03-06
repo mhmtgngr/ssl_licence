@@ -1,11 +1,15 @@
 """Product registry — persistent storage and CRUD for tracked products."""
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from sslcert.utils.safe_io import atomic_write_json
 from tracker.product import Product, ProductCategory, SupportStatus
+
+logger = logging.getLogger(__name__)
 
 
 class ProductRegistry:
@@ -153,9 +157,9 @@ class ProductRegistry:
     # ---- Persistence ----
 
     def _save(self) -> None:
-        """Save registry to disk."""
+        """Save registry to disk atomically."""
         data = [p.to_dict() for p in self._products.values()]
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        atomic_write_json(self._path, data)
 
     def _load(self) -> None:
         """Load registry from disk."""
@@ -164,7 +168,10 @@ class ProductRegistry:
         try:
             data = json.loads(self._path.read_text())
             for item in data:
-                product = Product.from_dict(item)
-                self._products[product.product_id] = product
-        except (json.JSONDecodeError, KeyError):
-            pass
+                try:
+                    product = Product.from_dict(item)
+                    self._products[product.product_id] = product
+                except (KeyError, ValueError) as e:
+                    logger.warning("Skipping invalid product entry: %s", e)
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse product registry %s: %s", self._path, e)

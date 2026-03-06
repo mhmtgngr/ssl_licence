@@ -1,7 +1,10 @@
 """Authentication and authorization module."""
 
 import functools
+import logging
 import os
+import time
+from collections import defaultdict
 
 from urllib.parse import urlparse
 
@@ -12,6 +15,36 @@ from flask import (
 
 from web.services import get_user_store, get_audit_log
 from tracker.user import User, UserRole
+
+logger = logging.getLogger(__name__)
+
+
+# ── Simple in-memory rate limiter ─────────────────────────────────────
+
+class _RateLimiter:
+    """Simple token-bucket rate limiter keyed by IP address."""
+
+    def __init__(self, max_attempts: int = 5, window_seconds: int = 60):
+        self._max = max_attempts
+        self._window = window_seconds
+        self._attempts: dict[str, list[float]] = defaultdict(list)
+
+    def is_limited(self, key: str) -> bool:
+        now = time.time()
+        cutoff = now - self._window
+        attempts = self._attempts[key]
+        # Prune old entries
+        self._attempts[key] = [t for t in attempts if t > cutoff]
+        return len(self._attempts[key]) >= self._max
+
+    def record(self, key: str) -> None:
+        self._attempts[key].append(time.time())
+
+    def reset(self, key: str) -> None:
+        self._attempts.pop(key, None)
+
+
+_login_limiter = _RateLimiter(max_attempts=5, window_seconds=60)
 
 bp = Blueprint("auth", __name__)
 
@@ -154,6 +187,12 @@ def login():
         return redirect(url_for("dashboard.index"))
 
     if request.method == "POST":
+        client_ip = request.remote_addr or "unknown"
+        if _login_limiter.is_limited(client_ip):
+            logger.warning("Login rate limited for %s", client_ip)
+            flash("Too many login attempts. Please wait a minute.", "danger")
+            return render_template("auth/login.html"), 429
+
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
@@ -165,6 +204,7 @@ def login():
         user = store.authenticate(username, password)
 
         if user:
+            _login_limiter.reset(client_ip)
             session.clear()
             session["user_id"] = user.user_id
             session["username"] = user.username
@@ -175,6 +215,7 @@ def login():
                 next_url = url_for("dashboard.index")
             return redirect(next_url)
         else:
+            _login_limiter.record(client_ip)
             flash("Invalid username or password.", "danger")
             return render_template("auth/login.html")
 
@@ -183,9 +224,9 @@ def login():
 
 @bp.route("/logout", methods=["GET", "POST"])
 def logout():
+    """Log out the current user."""
     if request.method == "GET":
         return redirect(url_for("dashboard.index"))
-    """Log out the current user."""
     username = g.current_user.username if g.get("current_user") else "unknown"
     get_audit_log().log("user_logout", username, user=username)
     session.clear()

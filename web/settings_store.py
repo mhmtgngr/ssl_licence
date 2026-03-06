@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from sslcert.utils.safe_io import atomic_write_json
+
 
 class SettingsStore:
     """Persist application settings to a JSON file.
@@ -25,7 +27,7 @@ class SettingsStore:
         return {}
 
     def _save(self, data: dict) -> None:
-        self._path.write_text(json.dumps(data, indent=2))
+        atomic_write_json(self._path, data)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value using dot-notation key (e.g. ``azure_dns.tenant_id``)."""

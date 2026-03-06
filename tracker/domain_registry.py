@@ -1,11 +1,15 @@
 """Domain registry — persistent storage and CRUD for tracked domains."""
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from sslcert.utils.safe_io import atomic_write_json
 from tracker.domain import Domain, DomainStatus, DomainType
+
+logger = logging.getLogger(__name__)
 
 
 class DomainRegistry:
@@ -119,9 +123,9 @@ class DomainRegistry:
     # ---- Persistence ----
 
     def _save(self) -> None:
-        """Save registry to disk."""
+        """Save registry to disk atomically."""
         data = [d.to_dict() for d in self._domains.values()]
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        atomic_write_json(self._path, data)
 
     def _load(self) -> None:
         """Load registry from disk."""
@@ -130,7 +134,10 @@ class DomainRegistry:
         try:
             data = json.loads(self._path.read_text())
             for item in data:
-                domain = Domain.from_dict(item)
-                self._domains[domain.domain_id] = domain
-        except (json.JSONDecodeError, KeyError):
-            pass
+                try:
+                    domain = Domain.from_dict(item)
+                    self._domains[domain.domain_id] = domain
+                except (KeyError, ValueError) as e:
+                    logger.warning("Skipping invalid domain entry: %s", e)
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse domain registry %s: %s", self._path, e)

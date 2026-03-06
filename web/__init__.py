@@ -26,10 +26,27 @@ def create_app():
         template_folder="templates",
         static_folder="static",
     )
-    app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY") or "dev-dashboard-key"
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+
+    secret_key = os.environ.get("FLASK_SECRET_KEY", "")
+    if not secret_key:
+        _log.warning(
+            "FLASK_SECRET_KEY not set — using insecure default. "
+            "Set FLASK_SECRET_KEY env var for production."
+        )
+        secret_key = "dev-dashboard-key"
+    app.config["SECRET_KEY"] = secret_key
     app.config["SESSION_COOKIE_NAME"] = "flask_session"
     app.config["WTF_CSRF_TIME_LIMIT"] = 3600
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+
+    from config.settings import LICENCE_SIGNING_SECRET
+    if LICENCE_SIGNING_SECRET == "change-me-in-production":
+        _log.warning(
+            "LICENCE_SECRET is using the default value. "
+            "Set LICENCE_SECRET env var for production."
+        )
 
     csrf.init_app(app)
 

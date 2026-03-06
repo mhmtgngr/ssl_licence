@@ -47,8 +47,13 @@ def check_remote():
     port_input = 443
     if request.method == "POST":
         domains_input = request.form.get("domains", "")
-        port_input = int(request.form.get("port", 443) or 443)
-        domains = [d.strip() for d in domains_input.replace(",", "\n").splitlines() if d.strip()]
+        from sslcert.utils.safe_io import validate_port, validate_hostname
+        port_input = validate_port(request.form.get("port", 443))
+        raw_domains = [d.strip() for d in domains_input.replace(",", "\n").splitlines() if d.strip()]
+        domains = [d for d in raw_domains if validate_hostname(d)]
+        if len(domains) < len(raw_domains):
+            skipped = len(raw_domains) - len(domains)
+            flash(f"Skipped {skipped} invalid hostname(s).", "warning")
         if domains:
             monitor = get_certificate_monitor()
             store = get_cert_checks_store()

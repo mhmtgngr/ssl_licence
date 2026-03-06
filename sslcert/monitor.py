@@ -2,11 +2,14 @@
 
 import datetime
 import json
+import logging
 import socket
 import ssl as _ssl
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 # Known Certificate Authority mappings: issuer organizationName -> friendly name
@@ -120,10 +123,15 @@ class CertificateMonitor:
     DEFAULT_PORT = 443
     DEFAULT_TIMEOUT = 10
 
+    MAX_RETRIES = 2
+
     def check_remote(
         self, domain: str, port: int = DEFAULT_PORT, timeout: int = DEFAULT_TIMEOUT
     ) -> Optional[CertStatus]:
         """Check SSL certificate status for a remote host.
+
+        Retries up to MAX_RETRIES times on transient network errors with
+        exponential backoff (1s, 2s).
 
         Args:
             domain: Hostname to check.
@@ -133,6 +141,29 @@ class CertificateMonitor:
         Returns:
             CertStatus with certificate details, or None on failure.
         """
+        import time
+
+        last_error = None
+        for attempt in range(self.MAX_RETRIES + 1):
+            result = self._check_remote_once(domain, port, timeout)
+            if result is not None:
+                return result
+            # Only retry on connection errors, not on first attempt
+            if attempt < self.MAX_RETRIES:
+                delay = 1 * (2 ** attempt)
+                logger.debug(
+                    "Retry %d/%d for %s:%d in %ds",
+                    attempt + 1, self.MAX_RETRIES, domain, port, delay,
+                )
+                time.sleep(delay)
+
+        logger.debug("SSL check failed for %s:%d after %d attempts", domain, port, self.MAX_RETRIES + 1)
+        return None
+
+    def _check_remote_once(
+        self, domain: str, port: int, timeout: int
+    ) -> Optional[CertStatus]:
+        """Single attempt to check SSL certificate on a remote host."""
         prev_timeout = socket.getdefaulttimeout()
         try:
             socket.setdefaulttimeout(timeout)
@@ -192,6 +223,7 @@ class CertificateMonitor:
             )
             return self._parse_openssl_output(path.stem, result.stdout)
         except Exception:
+            logger.warning("Failed to parse local certificate %s", cert_path, exc_info=True)
             return None
 
     def check_multiple(
@@ -335,6 +367,7 @@ class CertificateMonitor:
                 ca_name=extract_ca_name(issuer_str),
             )
         except Exception:
+            logger.debug("Failed to parse DER cert for %s", domain, exc_info=True)
             return None
 
     @staticmethod
