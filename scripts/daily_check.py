@@ -50,7 +50,11 @@ def get_monitored_domains() -> list[str]:
     """Get unique domains from certificate check history."""
     if not CERT_CHECKS_PATH.exists():
         return []
-    checks = json.loads(CERT_CHECKS_PATH.read_text())
+    try:
+        checks = json.loads(CERT_CHECKS_PATH.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"[WARNING] Could not read cert_checks.json: {e}")
+        return []
     seen = set()
     domains = []
     for c in checks:
@@ -279,12 +283,21 @@ def check_letsencrypt_renewals() -> list[dict]:
 
 
 def save_cert_checks(results: list[dict]) -> None:
-    """Append certificate check results to the cert_checks store."""
+    """Append certificate check results to the cert_checks store.
+
+    Keeps at most 5000 entries to prevent unbounded file growth.
+    """
+    from sslcert.utils.safe_io import atomic_write_json
     existing = []
     if CERT_CHECKS_PATH.exists():
-        existing = json.loads(CERT_CHECKS_PATH.read_text())
+        try:
+            existing = json.loads(CERT_CHECKS_PATH.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[WARNING] Could not read cert_checks.json, starting fresh: {e}")
     existing = results + existing
-    CERT_CHECKS_PATH.write_text(json.dumps(existing, indent=2, default=str))
+    # Cap at 5000 entries to prevent unbounded growth
+    existing = existing[:5000]
+    atomic_write_json(CERT_CHECKS_PATH, existing)
 
 
 def main():
@@ -394,9 +407,9 @@ def main():
     }
 
     # Save daily report
-    DAILY_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    from sslcert.utils.safe_io import atomic_write_json
     report_path = DAILY_REPORTS_DIR / f"{date_str}.json"
-    report_path.write_text(json.dumps(report, indent=2, default=str))
+    atomic_write_json(report_path, report)
 
     # 6. Send notifications for unacknowledged alerts
     try:
@@ -417,6 +430,8 @@ def main():
         else:
             print("\n[Notifications] No unacknowledged alerts to dispatch.")
     except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Notification dispatch failed: %s", e, exc_info=True)
         print(f"\n[Notifications] Dispatch failed: {e}")
 
     # Print summary

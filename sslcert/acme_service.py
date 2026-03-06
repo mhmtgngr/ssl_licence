@@ -1,12 +1,16 @@
 """Let's Encrypt certificate provisioning via certbot CLI."""
 
+import json
 import logging
+import os
 import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+from sslcert.utils.safe_io import validate_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,13 @@ class AcmeService:
                             "dns" for DNS-01 manual,
                             "dns-azure" for automated DNS-01 via Azure DNS.
         """
+        if not validate_hostname(domain):
+            return AcmeResult(
+                success=False, domain=domain,
+                error=f"Invalid domain name: {domain}",
+                message="Domain validation failed",
+            )
+
         if challenge_type == "dns-azure":
             return self._issue_via_azure_dns(domain)
 
@@ -90,23 +101,27 @@ class AcmeService:
             )
             if result.returncode == 0:
                 cert_path, key_path = self._find_cert_paths(domain)
+                logger.info("Certificate issued for %s", domain)
                 return AcmeResult(
                     success=True, domain=domain,
                     cert_path=cert_path, key_path=key_path,
                     message=f"Certificate issued for {domain}",
                 )
             else:
+                logger.error("certbot failed for %s: %s", domain, result.stderr or result.stdout)
                 return AcmeResult(
                     success=False, domain=domain,
                     error=result.stderr.strip() or result.stdout.strip(),
                     message=f"certbot failed for {domain}",
                 )
         except subprocess.TimeoutExpired:
+            logger.error("certbot timed out for %s", domain)
             return AcmeResult(
                 success=False, domain=domain,
                 error="certbot timed out", message="Timeout",
             )
         except FileNotFoundError:
+            logger.error("certbot not found on system")
             return AcmeResult(
                 success=False, domain=domain,
                 error="certbot not found — install with: apt-get install certbot",
@@ -143,30 +158,73 @@ class AcmeService:
             prefix = domain_lower[: -(len(zone_lower) + 1)]  # strip ".zone"
             record_name = f"_acme-challenge.{prefix}"
 
-        # Write hook scripts that certbot will call
+        # Write hook scripts that certbot will call.
+        # SECURITY: Credentials are passed via a JSON config file (0o600)
+        # instead of being interpolated into shell scripts.
         auth_script = self.base_dir / "azure_auth_hook.sh"
         cleanup_script = self.base_dir / "azure_cleanup_hook.sh"
         token_file = self.base_dir / "acme_token.txt"
+        azure_config_file = self.base_dir / "azure_hook_config.json"
 
-        auth_script.write_text(
+        # Write Azure credentials to a secured config file (not a shell script)
+        azure_config = {
+            "project_root": str(Path(__file__).resolve().parent.parent),
+            "subscription_id": _sub_id,
+            "resource_group": rg,
+            "tenant_id": self.azure_dns.tenant_id,
+            "client_id": self.azure_dns.client_id,
+            "client_secret": self.azure_dns.client_secret,
+            "zone_name": zone_name,
+            "record_name": record_name,
+        }
+        azure_config_file.write_text(json.dumps(azure_config))
+        os.chmod(str(azure_config_file), 0o600)
+
+        # Hook scripts read config from the JSON file — no credentials in scripts
+        auth_script_content = (
             "#!/bin/bash\n"
             f'echo "$CERTBOT_VALIDATION" > "{token_file}"\n'
+            f'python3 -c "\n'
+            f"import json, sys, os, time\n"
+            f"cfg = json.load(open('{azure_config_file}'))\n"
+            f"sys.path.insert(0, cfg['project_root'])\n"
+            f"from sslcert.azure_dns import AzureDnsService\n"
+            f"svc = AzureDnsService(\n"
+            f"    subscription_id=cfg['subscription_id'],\n"
+            f"    resource_group=cfg['resource_group'],\n"
+            f"    tenant_id=cfg['tenant_id'],\n"
+            f"    client_id=cfg['client_id'],\n"
+            f"    client_secret=cfg['client_secret'],\n"
+            f")\n"
+            f"token = os.environ.get('CERTBOT_VALIDATION', '')\n"
+            f"svc.create_txt_record(cfg['zone_name'], cfg['record_name'], token, cfg['resource_group'], subscription_id=cfg['subscription_id'])\n"
+            f"time.sleep(30)\n"
+            '"\n'
         )
-        cleanup_script.write_text(
+        auth_script.write_text(auth_script_content)
+        os.chmod(str(auth_script), 0o700)
+
+        cleanup_script_content = (
             "#!/bin/bash\n"
-            f'rm -f "{token_file}"\n'
+            f'python3 -c "\n'
+            f"import json, sys\n"
+            f"cfg = json.load(open('{azure_config_file}'))\n"
+            f"sys.path.insert(0, cfg['project_root'])\n"
+            f"from sslcert.azure_dns import AzureDnsService\n"
+            f"svc = AzureDnsService(\n"
+            f"    subscription_id=cfg['subscription_id'],\n"
+            f"    resource_group=cfg['resource_group'],\n"
+            f"    tenant_id=cfg['tenant_id'],\n"
+            f"    client_id=cfg['client_id'],\n"
+            f"    client_secret=cfg['client_secret'],\n"
+            f")\n"
+            f"svc.delete_txt_record(cfg['zone_name'], cfg['record_name'], cfg['resource_group'], subscription_id=cfg['subscription_id'])\n"
+            '"\n'
         )
-        auth_script.chmod(0o755)
-        cleanup_script.chmod(0o755)
+        cleanup_script.write_text(cleanup_script_content)
+        os.chmod(str(cleanup_script), 0o700)
 
         try:
-            # Step 1: Get the ACME order and token via certbot dry-run approach.
-            # We use certbot with manual plugin and our own pre/post hooks.
-            # But certbot --manual doesn't work non-interactively with hooks
-            # in all versions, so we use a two-phase approach:
-            # Phase 1 - use certbot to get the validation token
-            # Phase 2 - create the DNS record and let certbot validate
-
             cmd = [
                 "certbot", "certonly",
                 "--non-interactive",
@@ -189,47 +247,6 @@ class AcmeService:
                 cmd.append("--staging")
 
             cmd.extend(["-d", domain])
-
-            # Override the auth hook to create Azure DNS record
-            # We wrap certbot: the auth hook writes the token, we intercept
-            # by replacing the auth script with one that also creates the DNS record
-            azure_auth_content = (
-                "#!/bin/bash\n"
-                f'echo "$CERTBOT_VALIDATION" > "{token_file}"\n'
-                f'python3 -c "\n'
-                f"import sys; sys.path.insert(0, '{Path(__file__).resolve().parent.parent}')\n"
-                f"from sslcert.azure_dns import AzureDnsService\n"
-                f"svc = AzureDnsService(\n"
-                f"    subscription_id='{_sub_id}',\n"
-                f"    resource_group='{rg}',\n"
-                f"    tenant_id='{self.azure_dns.tenant_id}',\n"
-                f"    client_id='{self.azure_dns.client_id}',\n"
-                f"    client_secret='{self.azure_dns.client_secret}',\n"
-                f")\n"
-                f"import os\n"
-                f"token = os.environ.get('CERTBOT_VALIDATION', '')\n"
-                f"svc.create_txt_record('{zone_name}', '{record_name}', token, '{rg}', subscription_id='{_sub_id}')\n"
-                f"import time; time.sleep(30)  # wait for DNS propagation\n"
-                '"\n'
-            )
-            auth_script.write_text(azure_auth_content)
-
-            azure_cleanup_content = (
-                "#!/bin/bash\n"
-                f'python3 -c "\n'
-                f"import sys; sys.path.insert(0, '{Path(__file__).resolve().parent.parent}')\n"
-                f"from sslcert.azure_dns import AzureDnsService\n"
-                f"svc = AzureDnsService(\n"
-                f"    subscription_id='{_sub_id}',\n"
-                f"    resource_group='{rg}',\n"
-                f"    tenant_id='{self.azure_dns.tenant_id}',\n"
-                f"    client_id='{self.azure_dns.client_id}',\n"
-                f"    client_secret='{self.azure_dns.client_secret}',\n"
-                f")\n"
-                f"svc.delete_txt_record('{zone_name}', '{record_name}', '{rg}', subscription_id='{_sub_id}')\n"
-                '"\n'
-            )
-            cleanup_script.write_text(azure_cleanup_content)
 
             result = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=300,
@@ -264,8 +281,8 @@ class AcmeService:
                 message="certbot is not installed",
             )
         finally:
-            # Clean up hook scripts and token file
-            for f in (auth_script, cleanup_script, token_file):
+            # Clean up hook scripts, token file, and credentials config
+            for f in (auth_script, cleanup_script, token_file, azure_config_file):
                 f.unlink(missing_ok=True)
 
     def renew_certificate(self, domain: str) -> AcmeResult:
@@ -288,18 +305,21 @@ class AcmeService:
             )
             if result.returncode == 0:
                 cert_path, key_path = self._find_cert_paths(domain)
+                logger.info("Certificate renewed for %s", domain)
                 return AcmeResult(
                     success=True, domain=domain,
                     cert_path=cert_path, key_path=key_path,
                     message=f"Certificate renewed for {domain}",
                 )
             else:
+                logger.error("Renewal failed for %s: %s", domain, result.stderr or result.stdout)
                 return AcmeResult(
                     success=False, domain=domain,
                     error=result.stderr.strip() or result.stdout.strip(),
                     message=f"Renewal failed for {domain}",
                 )
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            logger.error("Renewal error for %s: %s", domain, e)
             return AcmeResult(
                 success=False, domain=domain,
                 error=str(e), message="Renewal error",
@@ -360,8 +380,8 @@ class AcmeService:
                     "key_path": key_path,
                     "expiry": expiry,
                 }
-        except (subprocess.CalledProcessError, ValueError, IndexError):
-            pass
+        except (subprocess.CalledProcessError, ValueError, IndexError) as e:
+            logger.warning("Failed to parse certificate info for %s: %s", domain, e)
 
         return {"cert_path": cert_path, "key_path": key_path}
 

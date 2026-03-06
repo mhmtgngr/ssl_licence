@@ -224,9 +224,9 @@ class AlertEngine:
 
     def save_history(self) -> None:
         """Persist alert history to file."""
-        self._history_path.parent.mkdir(parents=True, exist_ok=True)
+        from sslcert.utils.safe_io import atomic_write_json
         data = [a.to_dict() for a in self._alerts]
-        self._history_path.write_text(json.dumps(data, indent=2))
+        atomic_write_json(self._history_path, data)
 
     def _evaluate_product(self, product: Product) -> list[Alert]:
         """Generate alerts for a single product based on all date fields."""

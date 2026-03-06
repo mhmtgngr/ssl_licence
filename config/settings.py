@@ -3,6 +3,20 @@
 import os
 from pathlib import Path
 
+
+def _safe_int(env_var: str, default: int, min_val: int = 0, max_val: int = 65535) -> int:
+    """Parse an env var as int within bounds, returning default on failure."""
+    raw = os.environ.get(env_var, "")
+    if not raw:
+        return default
+    try:
+        val = int(raw)
+        if min_val <= val <= max_val:
+            return val
+    except (ValueError, TypeError):
+        pass
+    return default
+
 # Base paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SSL_DIR = PROJECT_ROOT / "sslcert"
@@ -14,7 +28,7 @@ SSL_KEYS_DIR = SSL_DIR / "keys"
 SSL_CSR_DIR = SSL_DIR / "csr"
 DEFAULT_KEY_SIZE = 2048
 DEFAULT_CERT_VALIDITY_DAYS = 365
-DEFAULT_SSL_PORT = int(os.environ.get("DEFAULT_SSL_PORT", "443"))
+DEFAULT_SSL_PORT = _safe_int("DEFAULT_SSL_PORT", 443, min_val=1, max_val=65535)
 
 # Well-known SSL/TLS ports — services that commonly use TLS on non-443 ports
 SSL_PORTS = {
@@ -41,7 +55,7 @@ LICENCE_SIGNING_SECRET = os.environ.get("LICENCE_SECRET", "change-me-in-producti
 
 # Monitoring
 CERT_EXPIRY_WARNING_DAYS = 30
-MONITOR_CHECK_INTERVAL_HOURS = int(os.environ.get("MONITOR_CHECK_INTERVAL_HOURS", "1"))
+MONITOR_CHECK_INTERVAL_HOURS = _safe_int("MONITOR_CHECK_INTERVAL_HOURS", 1, min_val=1, max_val=8760)
 
 # Let's Encrypt / ACME
 ACME_EMAIL = os.environ.get("ACME_EMAIL", "")
@@ -57,7 +71,7 @@ AZURE_CLIENT_SECRET = os.environ.get("AZURE_CLIENT_SECRET", "")
 
 # Notification channels (env var fallbacks for settings store)
 SMTP_HOST = os.environ.get("SMTP_HOST", "")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_PORT = _safe_int("SMTP_PORT", 587, min_val=1, max_val=65535)
 SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", "")
@@ -70,7 +84,7 @@ SETTINGS_PATH = PROJECT_ROOT / "data" / "settings.json"
 
 # Scheduler
 SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
-AZURE_SCAN_INTERVAL_HOURS = int(os.environ.get("AZURE_SCAN_INTERVAL_HOURS", "24"))
+AZURE_SCAN_INTERVAL_HOURS = _safe_int("AZURE_SCAN_INTERVAL_HOURS", 24, min_val=1, max_val=8760)
 
 # Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")

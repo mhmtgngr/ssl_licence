@@ -1,10 +1,13 @@
 """Certificate chain validation — verify full chain integrity for remote hosts."""
 
+import logging
 import socket
 import ssl as _ssl
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class ChainValidationStatus:
@@ -107,9 +110,9 @@ class CertificateChainValidator:
                             parsed = _ssl._ssl._test_decode_cert(der_cert)  # type: ignore[attr-defined]
                             if parsed:
                                 certs.append(parsed)
-                except (AttributeError, TypeError):
-                    # get_verified_chain not available; use leaf only
-                    pass
+                except (AttributeError, TypeError) as e:
+                    # get_verified_chain not available (pre-3.10); use leaf only
+                    logger.debug("get_verified_chain unavailable for %s: %s", domain, e)
 
         return certs
 
@@ -143,14 +146,18 @@ class CertificateChainValidator:
             return ChainValidationStatus.SELF_SIGNED
 
         # Check for expired certificates in chain
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         for link in links:
             try:
                 not_after = datetime.strptime(link.not_after, "%b %d %H:%M:%S %Y %Z")
+                # Treat parsed naive datetimes as UTC
+                if not_after.tzinfo is None:
+                    not_after = not_after.replace(tzinfo=timezone.utc)
                 if not_after < now:
                     return ChainValidationStatus.EXPIRED_IN_CHAIN
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.warning("Could not parse cert date '%s' for %s: %s",
+                               link.not_after, link.subject, e)
 
         # Chain ordering: each cert's issuer should match next cert's subject
         for i in range(len(links) - 1):

@@ -13,9 +13,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Hostname validation: RFC 952 / RFC 1123
-_HOSTNAME_RE = re.compile(
-    r"^(?!\-)([a-zA-Z0-9\-\*]{1,63}\.)*[a-zA-Z]{2,63}$"
-)
+# Each label: 1-63 chars, alphanumeric or hyphen, cannot start/end with hyphen
+_LABEL_RE = re.compile(r"^(?![*-])([a-zA-Z0-9*]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)$")
 
 
 def atomic_write_json(path: Path, data: Any, indent: int = 2) -> None:
@@ -108,10 +107,42 @@ def validate_hostname(hostname: str) -> bool:
 
     Allows standard hostnames and wildcard patterns like *.example.com.
     """
-    if not hostname or len(hostname) > 253:
+    if not hostname or not hostname.strip() or len(hostname) > 253:
         return False
-    # Allow wildcard prefix
-    check = hostname
-    if check.startswith("*."):
-        check = "a" + check[1:]
-    return bool(_HOSTNAME_RE.match(check))
+    hostname = hostname.strip()
+    labels = hostname.split(".")
+    if len(labels) < 2:
+        return False
+    # TLD must be alphabetic, at least 2 chars
+    if not labels[-1].isalpha() or len(labels[-1]) < 2:
+        return False
+    for i, label in enumerate(labels):
+        # Allow wildcard only as first label
+        if label == "*" and i == 0:
+            continue
+        if not _LABEL_RE.match(label):
+            return False
+    return True
+
+
+def validate_webhook_url(url: str) -> bool:
+    """Validate that a URL is a safe webhook target (HTTPS only).
+
+    Rejects file://, ftp://, and plain http:// to prevent SSRF.
+    Returns True only for https:// URLs with a valid-looking host.
+    """
+    if not url or not isinstance(url, str):
+        return False
+    from urllib.parse import urlparse
+    parsed = urlparse(url.strip())
+    if parsed.scheme != "https":
+        return False
+    if not parsed.hostname:
+        return False
+    # Block localhost / private IPs
+    host = parsed.hostname.lower()
+    if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+        return False
+    if host.startswith("10.") or host.startswith("192.168.") or host.startswith("172."):
+        return False
+    return True

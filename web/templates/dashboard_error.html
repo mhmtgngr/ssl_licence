@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Error{% endblock %}
+{% block content %}
+<div class="alert alert-danger mt-4">
+    <h5><i class="bi bi-exclamation-triangle"></i> Dashboard Unavailable</h5>
+    <p>Could not load dashboard data. This may be caused by corrupt data files or a configuration issue.</p>
+    <p>Please check the application logs for details.</p>
+</div>
+{% endblock %}

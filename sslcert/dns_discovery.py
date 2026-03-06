@@ -1,8 +1,11 @@
 """DNS discovery service — IP, NS, SOA, reverse DNS, hosting detection, subdomain discovery."""
 
+import logging
 import socket
 import subprocess
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from tracker.domain import TWO_PART_TLDS
 
@@ -88,7 +91,8 @@ def _run_whois(domain: str, timeout: int = 30) -> str:
             capture_output=True, text=True, timeout=timeout,
         )
         return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        logger.warning("whois lookup failed for %s: %s", domain, e)
         return ""
 
 
@@ -100,7 +104,8 @@ def _run_dig(args: list[str], timeout: int = 10) -> str:
             capture_output=True, text=True, timeout=timeout,
         )
         return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        logger.warning("dig lookup failed for %s: %s", args, e)
         return ""
 
 

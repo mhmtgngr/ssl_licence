@@ -164,6 +164,9 @@ class WebhookNotifier:
     """Send alerts to a generic webhook (HTTP POST with JSON)."""
 
     def __init__(self, url: str, headers: Optional[dict] = None):
+        from sslcert.utils.safe_io import validate_webhook_url
+        if not validate_webhook_url(url):
+            raise ValueError(f"Invalid or insecure webhook URL (must be HTTPS): {url}")
         self.url = url
         self.headers = headers or {"Content-Type": "application/json"}
 
@@ -199,6 +202,9 @@ class SlackNotifier:
     """Send alerts to Slack via incoming webhook."""
 
     def __init__(self, webhook_url: str):
+        from sslcert.utils.safe_io import validate_webhook_url
+        if not validate_webhook_url(webhook_url):
+            raise ValueError(f"Invalid or insecure Slack webhook URL (must be HTTPS): {webhook_url}")
         self.webhook_url = webhook_url
 
     def send(self, alerts: list[Alert]) -> bool:
@@ -260,14 +266,17 @@ class SlackNotifier:
 
 
 class FileNotifier:
-    """Append alerts to a log file."""
+    """Append alerts to a log file with automatic rotation."""
+
+    MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
     def __init__(self, log_path: str = "data/alerts.log"):
         self.log_path = Path(log_path)
 
     def send(self, alerts: list[Alert]) -> None:
-        """Append alerts to the log file."""
+        """Append alerts to the log file, rotating if too large."""
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        self._rotate_if_needed()
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         lines = [f"\n--- Alert run: {timestamp} ({len(alerts)} alerts) ---\n"]
@@ -282,3 +291,16 @@ class FileNotifier:
 
         with self.log_path.open("a") as f:
             f.writelines(lines)
+
+    def _rotate_if_needed(self) -> None:
+        """Rotate log file if it exceeds MAX_SIZE_BYTES."""
+        if not self.log_path.exists():
+            return
+        try:
+            if self.log_path.stat().st_size > self.MAX_SIZE_BYTES:
+                rotated = self.log_path.with_suffix(".log.1")
+                if rotated.exists():
+                    rotated.unlink()
+                self.log_path.rename(rotated)
+        except OSError:
+            pass

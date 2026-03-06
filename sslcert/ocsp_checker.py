@@ -1,10 +1,13 @@
 """OCSP revocation status checking via openssl subprocess."""
 
+import logging
 import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class OCSPStatus:
@@ -46,6 +49,7 @@ class OCSPChecker:
         try:
             cert_pem, issuer_pem = self._fetch_certs(domain, port)
         except (subprocess.CalledProcessError, OSError, ValueError) as exc:
+            logger.error("OCSP: failed to fetch certificate for %s:%s — %s", domain, port, exc)
             return OCSPResult(
                 domain=domain,
                 status=OCSPStatus.ERROR,
@@ -65,6 +69,7 @@ class OCSPChecker:
         try:
             return self._query_ocsp(domain, cert_pem, issuer_pem, ocsp_url)
         except (subprocess.CalledProcessError, OSError) as exc:
+            logger.error("OCSP query failed for %s (responder %s): %s", domain, ocsp_url, exc)
             return OCSPResult(
                 domain=domain,
                 status=OCSPStatus.ERROR,

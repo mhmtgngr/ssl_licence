@@ -3,6 +3,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from web.auth import role_required, current_username
 from web.services import get_settings_store, get_azure_dns_service, get_audit_log
+from sslcert.utils.safe_io import validate_webhook_url
 
 bp = Blueprint("settings", __name__)
 
@@ -112,10 +113,15 @@ def save_notify_email():
 def save_notify_slack():
     if request.method == "GET":
         return redirect(url_for("settings.index"))
+    webhook_url = request.form.get("slack_webhook_url", "").strip()
+    enabled = request.form.get("slack_enabled") == "on"
+    if enabled and webhook_url and not validate_webhook_url(webhook_url):
+        flash("Slack webhook URL must be a valid HTTPS URL.", "danger")
+        return redirect(url_for("settings.index"))
     store = get_settings_store()
     store.set_section("notify_slack", {
-        "enabled": request.form.get("slack_enabled") == "on",
-        "webhook_url": request.form.get("slack_webhook_url", "").strip(),
+        "enabled": enabled,
+        "webhook_url": webhook_url,
     })
     get_audit_log().log("settings_change", "notify_slack", "Updated Slack notification settings", user=current_username())
     flash("Slack notification settings saved.", "success")
@@ -127,10 +133,15 @@ def save_notify_slack():
 def save_notify_webhook():
     if request.method == "GET":
         return redirect(url_for("settings.index"))
+    webhook_url = request.form.get("webhook_url", "").strip()
+    enabled = request.form.get("webhook_enabled") == "on"
+    if enabled and webhook_url and not validate_webhook_url(webhook_url):
+        flash("Webhook URL must be a valid HTTPS URL.", "danger")
+        return redirect(url_for("settings.index"))
     store = get_settings_store()
     store.set_section("notify_webhook", {
-        "enabled": request.form.get("webhook_enabled") == "on",
-        "url": request.form.get("webhook_url", "").strip(),
+        "enabled": enabled,
+        "url": webhook_url,
         "headers": request.form.get("webhook_headers", "").strip(),
     })
     get_audit_log().log("settings_change", "notify_webhook", "Updated webhook notification settings", user=current_username())
