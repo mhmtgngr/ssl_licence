@@ -7,6 +7,8 @@ Supports:
 - Webhook (generic HTTP POST)
 - Slack (incoming webhook)
 - Log file
+
+All notifiers implement the ``Notifier`` Protocol for pluggable dispatch.
 """
 
 import json
@@ -18,11 +20,22 @@ from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Protocol, runtime_checkable
 
 from tracker.alert_engine import Alert, AlertLevel
 
 logger = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class Notifier(Protocol):
+    """Protocol that all notification channels must implement.
+
+    ``send()`` receives a list of alerts and returns True on success,
+    False on failure.  Implementations may set ``last_error`` with detail.
+    """
+
+    def send(self, alerts: list[Alert]) -> bool: ...
 
 
 class ConsoleNotifier:
@@ -37,11 +50,11 @@ class ConsoleNotifier:
         AlertLevel.EXPIRED: "[XXX]",
     }
 
-    def send(self, alerts: list[Alert]) -> None:
+    def send(self, alerts: list[Alert]) -> bool:
         """Print alerts to console."""
         if not alerts:
             print("No alerts to display.")
-            return
+            return True
 
         print(f"\n{'='*70}")
         print(f"  LICENCE & SUPPORT ALERTS — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
@@ -57,6 +70,7 @@ class ConsoleNotifier:
         print(f"{'='*70}")
         print(f"  Total: {len(alerts)} alert(s)")
         print(f"{'='*70}\n")
+        return True
 
 
 class EmailNotifier:
@@ -79,6 +93,7 @@ class EmailNotifier:
         self.from_addr = from_addr
         self.to_addrs = to_addrs or []
         self.use_tls = use_tls
+        self.last_error = ""
 
     def send(self, alerts: list[Alert]) -> bool:
         """Send alert digest email. Returns True on success."""
@@ -169,6 +184,7 @@ class WebhookNotifier:
             raise ValueError(f"Invalid or insecure webhook URL (must be HTTPS): {url}")
         self.url = url
         self.headers = headers or {"Content-Type": "application/json"}
+        self.last_error = ""
 
     def send(self, alerts: list[Alert]) -> bool:
         """POST alert data to webhook. Returns True on success."""
@@ -206,6 +222,7 @@ class SlackNotifier:
         if not validate_webhook_url(webhook_url):
             raise ValueError(f"Invalid or insecure Slack webhook URL (must be HTTPS): {webhook_url}")
         self.webhook_url = webhook_url
+        self.last_error = ""
 
     def send(self, alerts: list[Alert]) -> bool:
         """Post alert summary to Slack channel."""
@@ -272,25 +289,33 @@ class FileNotifier:
 
     def __init__(self, log_path: str = "data/alerts.log"):
         self.log_path = Path(log_path)
+        self.last_error = ""
 
-    def send(self, alerts: list[Alert]) -> None:
+    def send(self, alerts: list[Alert]) -> bool:
         """Append alerts to the log file, rotating if too large."""
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        self._rotate_if_needed()
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        self.last_error = ""
+        try:
+            self.log_path.parent.mkdir(parents=True, exist_ok=True)
+            self._rotate_if_needed()
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        lines = [f"\n--- Alert run: {timestamp} ({len(alerts)} alerts) ---\n"]
-        for a in alerts:
-            lines.append(
-                f"[{a.alert_level.value.upper():10s}] "
-                f"{a.product_name} ({a.vendor}) — "
-                f"{a.alert_type.value} — "
-                f"{a.days_remaining} days — "
-                f"target: {a.target_date.strftime('%Y-%m-%d')}\n"
-            )
+            lines = [f"\n--- Alert run: {timestamp} ({len(alerts)} alerts) ---\n"]
+            for a in alerts:
+                lines.append(
+                    f"[{a.alert_level.value.upper():10s}] "
+                    f"{a.product_name} ({a.vendor}) — "
+                    f"{a.alert_type.value} — "
+                    f"{a.days_remaining} days — "
+                    f"target: {a.target_date.strftime('%Y-%m-%d')}\n"
+                )
 
-        with self.log_path.open("a") as f:
-            f.writelines(lines)
+            with self.log_path.open("a") as f:
+                f.writelines(lines)
+            return True
+        except Exception as e:
+            self.last_error = str(e)
+            logger.error("FileNotifier failed: %s", e)
+            return False
 
     def _rotate_if_needed(self) -> None:
         """Rotate log file if it exceeds MAX_SIZE_BYTES."""

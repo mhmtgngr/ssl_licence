@@ -1,97 +1,75 @@
 """Product registry — persistent storage and CRUD for tracked products."""
 
-import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
-from sslcert.utils.safe_io import atomic_write_json
+from tracker.base_registry import BaseRegistry
 from tracker.product import Product, ProductCategory, SupportStatus
 
 logger = logging.getLogger(__name__)
 
 
-class ProductRegistry:
+class ProductRegistry(BaseRegistry[Product]):
     """Central registry for all tracked product licences and support dates."""
 
     def __init__(self, storage_path: str = "data/products/registry.json"):
-        self._path = Path(storage_path)
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._products: dict[str, Product] = {}
-        self._load()
+        super().__init__(storage_path)
 
-    # ---- CRUD ----
+    # ---- BaseRegistry hooks ----
 
-    def add(self, product: Product) -> Product:
-        """Add a product to the registry."""
-        product.created_at = datetime.now(timezone.utc)
-        product.updated_at = datetime.now(timezone.utc)
-        self._products[product.product_id] = product
-        self._save()
-        return product
+    def _get_id(self, item: Product) -> str:
+        return item.product_id
 
-    def update(self, product_id: str, **fields) -> Optional[Product]:
-        """Update fields on an existing product."""
-        product = self._products.get(product_id)
-        if not product:
-            return None
-        for key, value in fields.items():
-            if hasattr(product, key):
-                setattr(product, key, value)
-        product.updated_at = datetime.now(timezone.utc)
-        self._save()
-        return product
+    def _set_timestamps(self, item: Product, created: bool = False) -> None:
+        now = datetime.now(timezone.utc)
+        if created:
+            item.created_at = now
+        item.updated_at = now
 
-    def remove(self, product_id: str) -> bool:
-        """Remove a product from the registry."""
-        if product_id in self._products:
-            del self._products[product_id]
-            self._save()
-            return True
-        return False
+    def _to_dict(self, item: Product) -> dict:
+        return item.to_dict()
 
-    def get(self, product_id: str) -> Optional[Product]:
-        """Get a product by ID."""
-        return self._products.get(product_id)
+    def _from_dict(self, data: dict) -> Product:
+        return Product.from_dict(data)
 
-    def list_all(self) -> list[Product]:
-        """Return all products."""
-        return list(self._products.values())
+    @property
+    def _entity_name(self) -> str:
+        return "product"
 
     # ---- Filters ----
 
     def by_category(self, category: ProductCategory) -> list[Product]:
         """Filter products by category."""
-        return [p for p in self._products.values() if p.category == category]
+        return [p for p in self._items.values() if p.category == category]
 
     def by_vendor(self, vendor: str) -> list[Product]:
         """Filter products by vendor (case-insensitive)."""
         vendor_lower = vendor.lower()
         return [
-            p for p in self._products.values()
+            p for p in self._items.values()
             if p.vendor.lower() == vendor_lower
         ]
 
     def by_environment(self, env: str) -> list[Product]:
         """Filter products by environment."""
-        return [p for p in self._products.values() if p.environment == env]
+        return [p for p in self._items.values() if p.environment == env]
 
     def by_status(self, status: SupportStatus) -> list[Product]:
         """Filter products by current support status."""
         return [
-            p for p in self._products.values()
+            p for p in self._items.values()
             if p.support_status() == status
         ]
 
     def by_tag(self, tag: str) -> list[Product]:
         """Filter products by tag."""
-        return [p for p in self._products.values() if tag in p.tags]
+        return [p for p in self._items.values() if tag in p.tags]
 
     def expiring_within_days(self, days: int) -> list[Product]:
         """Get products whose licence expires within N days."""
         results = []
-        for p in self._products.values():
+        for p in self._items.values():
             remaining = p.days_until_licence_expiry()
             if remaining is not None and 0 < remaining <= days:
                 results.append(p)
@@ -100,7 +78,7 @@ class ProductRegistry:
     def support_ending_within_days(self, days: int) -> list[Product]:
         """Get products whose support ends within N days."""
         results = []
-        for p in self._products.values():
+        for p in self._items.values():
             remaining = p.days_until_support_end()
             if remaining is not None and 0 < remaining <= days:
                 results.append(p)
@@ -108,12 +86,12 @@ class ProductRegistry:
 
     def already_expired(self) -> list[Product]:
         """Get products with already-expired licences."""
-        return [p for p in self._products.values() if p.is_licence_expired()]
+        return [p for p in self._items.values() if p.is_licence_expired()]
 
     def already_end_of_support(self) -> list[Product]:
         """Get products that have reached end of support/life."""
         return [
-            p for p in self._products.values()
+            p for p in self._items.values()
             if p.support_status() in (
                 SupportStatus.END_OF_SUPPORT,
                 SupportStatus.END_OF_LIFE,
@@ -153,25 +131,3 @@ class ProductRegistry:
             "by_status": by_status,
             "by_vendor": by_vendor,
         }
-
-    # ---- Persistence ----
-
-    def _save(self) -> None:
-        """Save registry to disk atomically."""
-        data = [p.to_dict() for p in self._products.values()]
-        atomic_write_json(self._path, data)
-
-    def _load(self) -> None:
-        """Load registry from disk."""
-        if not self._path.exists():
-            return
-        try:
-            data = json.loads(self._path.read_text())
-            for item in data:
-                try:
-                    product = Product.from_dict(item)
-                    self._products[product.product_id] = product
-                except (KeyError, ValueError) as e:
-                    logger.warning("Skipping invalid product entry: %s", e)
-        except json.JSONDecodeError as e:
-            logger.error("Failed to parse product registry %s: %s", self._path, e)

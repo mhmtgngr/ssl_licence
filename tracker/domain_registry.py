@@ -1,86 +1,64 @@
 """Domain registry — persistent storage and CRUD for tracked domains."""
 
-import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
-from sslcert.utils.safe_io import atomic_write_json
+from tracker.base_registry import BaseRegistry
 from tracker.domain import Domain, DomainStatus, DomainType
 
 logger = logging.getLogger(__name__)
 
 
-class DomainRegistry:
+class DomainRegistry(BaseRegistry[Domain]):
     """Central registry for all tracked domains with DNS/SSL/hosting data."""
 
     def __init__(self, storage_path: str = "data/domains/registry.json"):
-        self._path = Path(storage_path)
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._domains: dict[str, Domain] = {}
-        self._load()
+        super().__init__(storage_path)
 
-    # ---- CRUD ----
+    # ---- BaseRegistry hooks ----
 
-    def add(self, domain: Domain) -> Domain:
-        """Add a domain to the registry."""
-        domain.created_at = datetime.now(timezone.utc)
-        domain.updated_at = datetime.now(timezone.utc)
-        self._domains[domain.domain_id] = domain
-        self._save()
-        return domain
+    def _get_id(self, item: Domain) -> str:
+        return item.domain_id
 
-    def update(self, domain_id: str, **fields) -> Optional[Domain]:
-        """Update fields on an existing domain."""
-        domain = self._domains.get(domain_id)
-        if not domain:
-            return None
-        for key, value in fields.items():
-            if hasattr(domain, key):
-                setattr(domain, key, value)
-        domain.updated_at = datetime.now(timezone.utc)
-        self._save()
-        return domain
+    def _set_timestamps(self, item: Domain, created: bool = False) -> None:
+        now = datetime.now(timezone.utc)
+        if created:
+            item.created_at = now
+        item.updated_at = now
 
-    def remove(self, domain_id: str) -> bool:
-        """Remove a domain from the registry."""
-        if domain_id in self._domains:
-            del self._domains[domain_id]
-            self._save()
-            return True
-        return False
+    def _to_dict(self, item: Domain) -> dict:
+        return item.to_dict()
 
-    def get(self, domain_id: str) -> Optional[Domain]:
-        """Get a domain by ID."""
-        return self._domains.get(domain_id)
+    def _from_dict(self, data: dict) -> Domain:
+        return Domain.from_dict(data)
 
-    def list_all(self) -> list[Domain]:
-        """Return all domains."""
-        return list(self._domains.values())
+    @property
+    def _entity_name(self) -> str:
+        return "domain"
 
     # ---- Filters ----
 
     def by_status(self, status: DomainStatus) -> list[Domain]:
         """Filter domains by status."""
-        return [d for d in self._domains.values() if d.status == status]
+        return [d for d in self._items.values() if d.status == status]
 
     def by_type(self, dtype: DomainType) -> list[Domain]:
         """Filter domains by type."""
-        return [d for d in self._domains.values() if d.domain_type == dtype]
+        return [d for d in self._items.values() if d.domain_type == dtype]
 
     def by_parent(self, parent: str) -> list[Domain]:
         """Filter domains by parent domain."""
         parent_lower = parent.lower()
         return [
-            d for d in self._domains.values()
+            d for d in self._items.values()
             if d.parent_domain.lower() == parent_lower
         ]
 
     def get_by_hostname(self, hostname: str) -> Optional[Domain]:
         """Find a domain by hostname."""
         hostname_lower = hostname.lower()
-        for d in self._domains.values():
+        for d in self._items.values():
             if d.hostname.lower() == hostname_lower:
                 return d
         return None
@@ -119,25 +97,3 @@ class DomainRegistry:
             "ssl_warning": ssl_warning,
             "ssl_expired": ssl_expired,
         }
-
-    # ---- Persistence ----
-
-    def _save(self) -> None:
-        """Save registry to disk atomically."""
-        data = [d.to_dict() for d in self._domains.values()]
-        atomic_write_json(self._path, data)
-
-    def _load(self) -> None:
-        """Load registry from disk."""
-        if not self._path.exists():
-            return
-        try:
-            data = json.loads(self._path.read_text())
-            for item in data:
-                try:
-                    domain = Domain.from_dict(item)
-                    self._domains[domain.domain_id] = domain
-                except (KeyError, ValueError) as e:
-                    logger.warning("Skipping invalid domain entry: %s", e)
-        except json.JSONDecodeError as e:
-            logger.error("Failed to parse domain registry %s: %s", self._path, e)
